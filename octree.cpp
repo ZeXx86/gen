@@ -106,49 +106,48 @@ void octree_build (octree_t *parent)
 
 	terrain_t *terrain = terrain_get ();
 	
-		for (unsigned x = 0; x <= terrain->dim_x; x ++) {
-			for (unsigned y = 0; y <= terrain->dim_y; y ++) {
-				for (unsigned z = 0; z <= terrain->dim_z; z ++) {
+		for (int x = 0; x < terrain->dim_x; x ++) {
+			for (int y = 0; y < terrain->dim_y; y ++) {
+				for (int z = 0; z < terrain->dim_z; z ++) {
 					voxel_t *v = terrain_voxel_get (x, y, z);
 					
 					if (v->value <= 0.0f)
 						continue;
 		
-
 					/* Nachazi se voxel uvnitr bounding boxu konkretniho rodice? */
 					if (x >= (parent->origin_x - o_x) && x <= (parent->origin_x) &&
 					    y >= (parent->origin_y - o_y) && y <= (parent->origin_y) &&
 					    z >= (parent->origin_z - o_z) && z <= (parent->origin_z))
 						octree_build_children (parent, 0);
-					else if (x >= (parent->origin_x) && x <= (parent->origin_x + o_x) &&
+					if (x >= (parent->origin_x) && x <= (parent->origin_x + o_x) &&
 					    y >= (parent->origin_y - o_y) && y <= (parent->origin_y) &&
 					    z >= (parent->origin_z - o_z) && z <= (parent->origin_z))
 						octree_build_children (parent, 1);
 						
-					else if (x >= (parent->origin_x - o_x) && x <= (parent->origin_x) &&
+					if (x >= (parent->origin_x - o_x) && x <= (parent->origin_x) &&
 					    y >= (parent->origin_y) && y <= (parent->origin_y + o_y) &&
 					    z >= (parent->origin_z - o_z) && z <= (parent->origin_z))
 						octree_build_children (parent, 2);
-					else if (x >= (parent->origin_x) && x <= (parent->origin_x + o_x) &&
+					if (x >= (parent->origin_x) && x <= (parent->origin_x + o_x) &&
 					    y >= (parent->origin_y) && y <= (parent->origin_y + o_y) &&
 					    z >= (parent->origin_z - o_z) && z <= (parent->origin_z))
 						octree_build_children (parent, 3);
 						
 						
-					else if (x >= (parent->origin_x - o_x) && x <= (parent->origin_x) &&
+					if (x >= (parent->origin_x - o_x) && x <= (parent->origin_x) &&
 					    y >= (parent->origin_y - o_y) && y <= (parent->origin_y) &&
 					    z >= (parent->origin_z) && z <= (parent->origin_z + o_z))
 						octree_build_children (parent, 4);
-					else if (x >= (parent->origin_x) && x <= (parent->origin_x + o_x) &&
+					if (x >= (parent->origin_x) && x <= (parent->origin_x + o_x) &&
 					    y >= (parent->origin_y - o_y) && y <= (parent->origin_y) &&
 					    z >= (parent->origin_z) && z <= (parent->origin_z + o_z))
 						octree_build_children (parent, 5);
 						
-					else if (x >= (parent->origin_x - o_x) && x <= (parent->origin_x) &&
+					if (x >= (parent->origin_x - o_x) && x <= (parent->origin_x) &&
 					    y >= (parent->origin_y) && y <= (parent->origin_y + o_y) &&
 					    z >= (parent->origin_z) && z <= (parent->origin_z + o_z))
 						octree_build_children (parent, 6);
-					else if (x >= (parent->origin_x) && x <= (parent->origin_x + o_x) &&
+					if (x >= (parent->origin_x) && x <= (parent->origin_x + o_x) &&
 					    y >= (parent->origin_y) && y <= (parent->origin_y + o_y) &&
 					    z >= (parent->origin_z) && z <= (parent->origin_z + o_z))
 						octree_build_children (parent, 7);

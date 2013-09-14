@@ -53,7 +53,7 @@ void gl_render_octree_mesh (octree_t *node)
 {
 	terrain_t *t = terrain_get ();
 
-	if (node->size_x == 4) {
+	if (node->size_x == 2) {
 	
 	glPushMatrix ();
 		glTranslatef (node->origin_x*TERRAIN_VOXEL_DIM-1, node->origin_z*TERRAIN_VOXEL_DIM-1, node->origin_y*TERRAIN_VOXEL_DIM-1);
@@ -94,7 +94,7 @@ void gl_render_octree_mesh (octree_t *node)
 		   glColor4ub(0, c_q, 0, 60); glVertex3f(-1.0f,  1.0f,  1.0f);  // Top Right Of The Texture and Quad
 		   glColor4ub(0, c_q, 0, 60); glVertex3f(-1.0f,  1.0f, -1.0f);  // Top Left Of The Texture and Quad
 		glEnd();
-					
+	
 		glPopMatrix ();
 	}
 
@@ -107,516 +107,259 @@ void gl_render_octree_mesh (octree_t *node)
 
 
 
-void gl_render_terrain ()
+void gl_render_terrain (octree_t *node)
 {
+	for (int i = 0; i < 8; i ++) {
+		if (node->children[i])
+			gl_render_terrain (node->children[i]);	
+	}
+
 	terrain_t *t = terrain_get ();
 #ifdef RENDER_TERRAIN
-	for (unsigned x = 0; x < t->dim_x; x ++) {
-		for (unsigned y = 0; y < t->dim_y; y ++) {
-			for (unsigned z = 0; z < t->dim_z; z ++) {
-				//voxel_t *v = terrain_voxel_get (x, y, z);
+	if (node->size_x != 1)
+		return;
 
-				glPushMatrix ();
-					glTranslatef (x*TERRAIN_VOXEL_DIM, z*TERRAIN_VOXEL_DIM, y*TERRAIN_VOXEL_DIM);
+	unsigned x = node->origin_x-1;
+	unsigned y = node->origin_y-1;
+	unsigned z = node->origin_z-1;
+		
+	//voxel_t *v = terrain_voxel_get (x, y, z);
 
-					voxel_t *v_b[9];
-					v_b[0] = terrain_voxel_get (x-1, y-1, z-1);
-					v_b[1] = terrain_voxel_get (x, y-1, z-1);
-					v_b[2] = terrain_voxel_get (x+1, y-1, z-1);
-					v_b[3] = terrain_voxel_get (x-1, y, z-1);
-					v_b[4] = terrain_voxel_get (x, y, z-1);
-					v_b[5] = terrain_voxel_get (x+1, y, z-1);
-					v_b[6] = terrain_voxel_get (x-1, y+1, z-1);
-					v_b[7] = terrain_voxel_get (x, y+1, z-1);
-					v_b[8] = terrain_voxel_get (x+1, y+1, z-1);
-				
-					voxel_t *v_c[9];
-					v_c[0] = terrain_voxel_get (x-1, y-1, z);
-					v_c[1] = terrain_voxel_get (x, y-1, z);
-					v_c[2] = terrain_voxel_get (x+1, y-1, z);
-					v_c[3] = terrain_voxel_get (x-1, y, z);
-					v_c[4] = terrain_voxel_get (x, y, z);
-					v_c[5] = terrain_voxel_get (x+1, y, z);
-					v_c[6] = terrain_voxel_get (x-1, y+1, z);
-					v_c[7] = terrain_voxel_get (x, y+1, z);
-					v_c[8] = terrain_voxel_get (x+1, y+1, z);
-					
-					voxel_t *v_t[9];
-					v_t[0] = terrain_voxel_get (x-1, y-1, z+1);
-					v_t[1] = terrain_voxel_get (x, y-1, z+1);
-					v_t[2] = terrain_voxel_get (x+1, y-1, z+1);
-					v_t[3] = terrain_voxel_get (x-1, y, z+1);
-					v_t[4] = terrain_voxel_get (x, y, z+1);
-					v_t[5] = terrain_voxel_get (x+1, y, z+1);
-					v_t[6] = terrain_voxel_get (x-1, y+1, z+1);
-					v_t[7] = terrain_voxel_get (x, y+1, z+1);
-					v_t[8] = terrain_voxel_get (x+1, y+1, z+1);
-					
-					float c_q = (v_c[4]->value + 1) * 127;
-				
-					if (v_c[4] < 0) {
-						glPopMatrix ();
-						continue;
-					}
-					
-					/* do not process voxel inside a voxelo-polygon */
-					if ((v_c[3]->value > 0.0f && v_c[5]->value > 0.0f && v_c[1]->value > 0.0f &&
-						v_c[7]->value > 0.0f && v_b[4]->value > 0.0f && v_t[4]->value > 0.0f)) {
-						glPopMatrix ();
+	glPushMatrix ();
+	glTranslatef (x*TERRAIN_VOXEL_DIM, z*TERRAIN_VOXEL_DIM, y*TERRAIN_VOXEL_DIM);
 
-						continue;
-					}
-									
-					
-					
-					
-					/* rovna plocha */
-					/*if (v_c[0]->value > 0 && v_c[1]->value > 0 && v_c[3]->value > 0 &&
-						((v_b[0]->value > 0 && v_b[1]->value > 0 && v_b[3]->value > 0) ||
-						(v_t[0]->value > 0 && v_t[1]->value > 0 && v_t[3]->value > 0))) {
-						glBegin(GL_QUADS);
-							// horizontal Face top
-							glColor4ub(0, c_q, 0, 0); glVertex3f(-1.0f, 0, -1.0f);  // Top Left Of The Texture and Quad
-							glColor4ub(0, c_q, 0, 0); glVertex3f(-1.0f, 0,  1.0f);  // Bottom Left Of The Texture and Quad
-							glColor4ub(0, c_q, 0, 0); glVertex3f( 1.0f, 0,  1.0f);  // Bottom Right Of The Texture and Quad
-							glColor4ub(0, c_q, 0, 0); glVertex3f( 1.0f, 0, -1.0f);  // Top Right Of The Texture and Quad
-						glEnd();
-					}*/
-					
-					//if ((v_c[0] <= 0 && v_b[0] <= 0 && v_t[0] <= 0)/* || (v_c[1] <= 0 && v_b[1] <= 0 && v_t[1] <= 0) ||
-					//	(v_c[3] <= 0 && v_b[3] <= 0 && v_t[3] <= 0) || (v_b[4] <= 0 && v_t[4] <= 0)*/)
-					//	continue;
-					
-				/*	if (!(v_c[0] > 0 && v_c[1] > 0 && v_c[3] > 0)){
-						glPopMatrix ();
-						continue;
-					}*/
-					
-					/*float a = v_t[0]->value > 0 ? 2 : (v_c[0]->value > 0 ? 0 : -1);
-					float b = v_t[3]->value > 0 ? 2 : (v_c[3]->value > 0 ? 0 : -1);
-					float c = v_t[4]->value > 0 ? 2 : (v_c[4]->value > 0 ? 0 : -1);
-					float d = v_t[1]->value > 0 ? 2 : (v_c[1]->value > 0 ? 0 : -1);
-					
-					if (v_c[0]->value > 0.0f && v_c[1]->value > 0.0f && v_c[3]->value > 0.0f) {
-						glBegin(GL_QUADS);
-							glColor4ub(0, c_q, 0, 0); glVertex3f(-2.0f, 0, -2.0f);  // Top Left Of The Texture and Quad
-							glColor4ub(0, c_q, 0, 0); glVertex3f(-2.0f, 0,  0.0f);  // Bottom Left Of The Texture and Quad
-							glColor4ub(0, c_q, 0, 0); glVertex3f( 0.0f, 0,  0.0f);  // Bottom Right Of The Texture and Quad
-							glColor4ub(0, c_q, 0, 0); glVertex3f( 0.0f, 0, -2.0f);  // Top Right Of The Texture and Quad
-						glEnd();
-					}
-					
-					if (v_c[3]->value > 0.0f && v_b[3]->value > 0.0f && v_b[4]->value > 0.0f) {
-						glBegin(GL_QUADS);
-						    // Front Face
-						    glColor4ub(0, c_q, 0, 0); glVertex3f(-2.0f, -2.0f,  0.0f);  // Bottom Left Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f( 0.0f, -2.0f,  0.0f);  // Bottom Right Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f( 0.0f,  0.0f,  0.0f);  // Top Right Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f(-2.0f,  0.0f,  0.0f);  // Top Left Of The Texture and Quad
-						glEnd();
-					}
-					
-					if (v_c[1]->value > 0.0f && v_b[1]->value > 0.0f && v_b[4]->value > 0.0f) {
-						glBegin(GL_QUADS);
-						    // Left Face
-						    glColor4ub(0, c_q, 0, 0); glVertex3f(0.0f, -2.0f, -2.0f);  // Bottom Left Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f(0.0f, -2.0f,  0.0f);  // Bottom Right Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f(0.0f,  0.0f,  0.0f);  // Top Right Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f(0.0f,  0.0f, -2.0f);  // Top Left Of The Texture and Quad
-						glEnd();
-					}
-					
-					if (v_c[1]->value > 0.0f && v_b[1]->value > 0.0f && v_b[4]->value > 0.0f) {
-						glBegin(GL_QUADS);
-						    // Left Face
-						    glColor4ub(0, c_q, 0, 0); glVertex3f(0.0f, -2.0f, -2.0f);  // Bottom Left Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f(0.0f, -2.0f,  0.0f);  // Bottom Right Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f(0.0f,  0.0f,  0.0f);  // Top Right Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f(0.0f,  0.0f, -2.0f);  // Top Left Of The Texture and Quad
-						glEnd();
-					}*/
-					
-					/*if (a != -1 && b != -1 && c != -1 && d != -1){
-						glBegin(GL_QUADS);
-							// horizontal Face top
-							glColor4ub(0, c_q, 0, 0); glVertex3f(-1.0f, a, -1.0f);  // Top Left Of The Texture and Quad
-							glColor4ub(0, c_q, 0, 0); glVertex3f(-1.0f, b,  1.0f);  // Bottom Left Of The Texture and Quad
-							glColor4ub(0, c_q, 0, 0); glVertex3f( 1.0f, c,  1.0f);  // Bottom Right Of The Texture and Quad
-							glColor4ub(0, c_q, 0, 0); glVertex3f( 1.0f, d, -1.0f);  // Top Right Of The Texture and Quad
-						glEnd();
-					}*/
-										
-					/*float a2 = v_b[0]->value > 0 ? -2 : (v_c[0]->value > 0 ? 0 : -1);
-					float b2 = v_b[3]->value > 0 ? -2 : (v_c[3]->value > 0 ? 0 : -1);
-					float c2 = v_b[4]->value > 0 ? -2 : (v_c[4]->value > 0 ? 0 : -1);
-					float d2 = v_b[1]->value > 0 ? -2 : (v_c[1]->value > 0 ? 0 : -1);
+	voxel_t *v_b[9];
+	v_b[0] = terrain_voxel_get (x-1, y-1, z-1);
+	v_b[1] = terrain_voxel_get (x, y-1, z-1);
+	v_b[2] = terrain_voxel_get (x+1, y-1, z-1);
+	v_b[3] = terrain_voxel_get (x-1, y, z-1);
+	v_b[4] = terrain_voxel_get (x, y, z-1);
+	v_b[5] = terrain_voxel_get (x+1, y, z-1);
+	v_b[6] = terrain_voxel_get (x-1, y+1, z-1);
+	v_b[7] = terrain_voxel_get (x, y+1, z-1);
+	v_b[8] = terrain_voxel_get (x+1, y+1, z-1);
 
-					if (a2 != -1 && b2 != -1 && c2 != -1){
-						glBegin(GL_TRIANGLES);
-							// horizontal Face top
-							glColor4ub(0, c_q, 0, 0); glVertex3f(-1.0f, a2, -1.0f);  // Top Left Of The Texture and Quad
-							glColor4ub(0, c_q, 0, 0); glVertex3f(-1.0f, b2,  1.0f);  // Bottom Left Of The Texture and Quad
-							glColor4ub(0, c_q, 0, 0); glVertex3f( 1.0f, c2,  1.0f);  // Bottom Right Of The Texture and Quad
-						glEnd();
-					}
-					
-					if (a2 != -1 && d2 != -1 && c2 != -1){
-						glBegin(GL_TRIANGLES);
-							// horizontal Face top
-							glColor4ub(0, c_q, 0, 0); glVertex3f(-1.0f, a2, -1.0f);  // Top Left Of The Texture and Quad
-							glColor4ub(0, c_q, 0, 0); glVertex3f( 1.0f, c2,  1.0f);  // Bottom Right Of The Texture and Quad
-							glColor4ub(0, c_q, 0, 0); glVertex3f( 1.0f, d2, -1.0f);  // Top Right Of The Texture and Quad
-						glEnd();
-					}*/
-					
-				
-					voxel_t **v_x = v_t;
-					float s = 1.0f;
-					
-					while (1) {
-						if (v_c[4]->value > 0 && v_x[4]->value <= 0) {
-							if (v_x[5]->value > 0) {
-								glBegin(GL_QUADS);
-									// horizontal Face top
-									glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*1, -1.0f);  // Top Left Of The Texture and Quad
-									glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*1,  1.0f);  // Bottom Left Of The Texture and Quad
-									glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*3,  1.0f);  // Bottom Right Of The Texture and Quad
-									glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*3, -1.0f);  // Top Right Of The Texture and Quad
-								glEnd();
-								
-								glBegin(GL_TRIANGLES);
-									glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*3, -1.0f);  // Bottom Left Of The Texture and Quad
-									glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*1, -1.0f);  // Bottom Right Of The Texture and Quad
-									glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*1, -1.0f);  // Top Right Of The Texture and Quad
-								glEnd();
-								
-								glBegin(GL_TRIANGLES);
-									glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*3, 1.0f);  // Bottom Left Of The Texture and Quad
-									glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*1, 1.0f);  // Bottom Right Of The Texture and Quad
-									glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*1, 1.0f);  // Top Right Of The Texture and Quad
-								glEnd();
-							} else if (v_x[3]->value > 0) { 
-								glBegin(GL_QUADS);
-									// horizontal Face top
-									glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*3, -1.0f);  // Top Left Of The Texture and Quad
-									glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*3,  1.0f);  // Bottom Left Of The Texture and Quad
-									glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*1,  1.0f);  // Bottom Right Of The Texture and Quad
-									glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*1, -1.0f);  // Top Right Of The Texture and Quad
-								glEnd();
-								
-								glBegin(GL_TRIANGLES);
-									glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*3, -1.0f);  // Bottom Left Of The Texture and Quad
-									glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*1, -1.0f);  // Bottom Right Of The Texture and Quad
-									glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*1, -1.0f);  // Top Right Of The Texture and Quad
-								glEnd();
-								
-								glBegin(GL_TRIANGLES);
-									glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*3, 1.0f);  // Bottom Left Of The Texture and Quad
-									glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*1, 1.0f);  // Bottom Right Of The Texture and Quad
-									glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*1, 1.0f);  // Top Right Of The Texture and Quad
-								glEnd();
-							} else if (v_x[7]->value > 0) { 
-								glBegin(GL_QUADS);
-									// horizontal Face top
-									glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*1, -1.0f);  // Top Left Of The Texture and Quad
-									glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*3,  1.0f);  // Bottom Left Of The Texture and Quad
-									glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*3,  1.0f);  // Bottom Right Of The Texture and Quad
-									glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*1, -1.0f);  // Top Right Of The Texture and Quad
-								glEnd();
-								
-								glBegin(GL_TRIANGLES);
-									glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*1, -1.0f);  // Bottom Left Of The Texture and Quad
-									glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*3, 1.0f);  // Bottom Right Of The Texture and Quad
-									glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*1, 1.0f);  // Top Right Of The Texture and Quad
-								glEnd();
-								
-								glBegin(GL_TRIANGLES);
-									glColor4ub(0, c_q, 0, 255); glVertex3f(1.0f, s*1, -1.0f);  // Bottom Left Of The Texture and Quad
-									glColor4ub(0, c_q, 0, 255); glVertex3f(1.0f, s*3, 1.0f);  // Bottom Right Of The Texture and Quad
-									glColor4ub(0, c_q, 0, 255); glVertex3f(1.0f, s*1, 1.0f);  // Top Right Of The Texture and Quad
-								glEnd();
-							} else if (v_x[1]->value > 0) { 
-								glBegin(GL_QUADS);
-									// horizontal Face top
-									glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*3, -1.0f);  // Top Left Of The Texture and Quad
-									glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*1,  1.0f);  // Bottom Left Of The Texture and Quad
-									glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*1,  1.0f);  // Bottom Right Of The Texture and Quad
-									glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*3, -1.0f);  // Top Right Of The Texture and Quad
-								glEnd();	
-								
-								glBegin(GL_TRIANGLES);
-									glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*3, -1.0f);  // Bottom Left Of The Texture and Quad
-									glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*1, -1.0f);  // Bottom Right Of The Texture and Quad
-									glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*1, 1.0f);  // Top Right Of The Texture and Quad
-								glEnd();
-								
-								glBegin(GL_TRIANGLES);
-									glColor4ub(0, c_q, 0, 255); glVertex3f(1.0f, s*3, -1.0f);  // Bottom Left Of The Texture and Quad
-									glColor4ub(0, c_q, 0, 255); glVertex3f(1.0f, s*1, -1.0f);  // Bottom Right Of The Texture and Quad
-									glColor4ub(0, c_q, 0, 255); glVertex3f(1.0f, s*1, 1.0f);  // Top Right Of The Texture and Quad
-								glEnd();
-							} else if (v_x[8]->value > 0 && v_x[7]->value <= 0 && v_x[5]->value <= 0) { 
-								glBegin(GL_QUADS);
-									// horizontal Face top
-									glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*1, -1.0f);  // Top Left Of The Texture and Quad
-									glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*1,  1.0f);  // Bottom Left Of The Texture and Quad
-									glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*3,  1.0f);  // Bottom Right Of The Texture and Quad
-									glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*1, -1.0f);  // Top Right Of The Texture and Quad
-								glEnd();	
-							} else if (v_x[2]->value > 0 && v_x[5]->value <= 0 && v_x[1]->value <= 0) { 
-								glBegin(GL_QUADS);
-									// horizontal Face top
-									glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*1, -1.0f);  // Top Left Of The Texture and Quad
-									glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*1,  1.0f);  // Bottom Left Of The Texture and Quad
-									glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*1,  1.0f);  // Bottom Right Of The Texture and Quad
-									glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*3, -1.0f);  // Top Right Of The Texture and Quad
-								glEnd();	
-							} else if (v_x[0]->value > 0 && v_x[1]->value <= 0 && v_x[3]->value <= 0) { 
-								glBegin(GL_QUADS);
-									// horizontal Face top
-									glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*3, -1.0f);  // Top Left Of The Texture and Quad
-									glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*1,  1.0f);  // Bottom Left Of The Texture and Quad
-									glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*1,  1.0f);  // Bottom Right Of The Texture and Quad
-									glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*1, -1.0f);  // Top Right Of The Texture and Quad
-								glEnd();	
-							} else if (v_x[6]->value > 0 && v_x[7]->value <= 0 && v_x[3]->value <= 0) { 
-								glBegin(GL_QUADS);
-									// horizontal Face top
-									glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*1, -1.0f);  // Top Left Of The Texture and Quad
-									glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*3,  1.0f);  // Bottom Left Of The Texture and Quad
-									glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*1,  1.0f);  // Bottom Right Of The Texture and Quad
-									glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*1, -1.0f);  // Top Right Of The Texture and Quad
-								glEnd();	
-							} else {
-								glBegin(GL_QUADS);
-									// horizontal Face top
-									glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*1, -1.0f);  // Top Left Of The Texture and Quad
-									glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*1,  1.0f);  // Bottom Left Of The Texture and Quad
-									glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*1,  1.0f);  // Bottom Right Of The Texture and Quad
-									glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*1, -1.0f);  // Top Right Of The Texture and Quad
-								glEnd();
-							}
-						}
-						
-						// switch to bottom
-						if (s == -1.0f)
-							break;
-						
-						s = -1.0f;
-						v_x = v_b;
-					}
-					
-					// Back
-					if (v_c[4]->value > 0 && v_c[1]->value <= 0) {
-						glBegin(GL_QUADS);
-						    // Back Face
-						    glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, -1.0f, -1.0f);  // Bottom Right Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f,  1.0f, -1.0f);  // Top Right Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f,  1.0f, -1.0f);  // Top Left Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, -1.0f, -1.0f);  // Bottom Left Of The Texture and Quad
-						glEnd();
-					}
-					
-					// Front
-					if (v_c[4]->value > 0 && v_c[7]->value <= 0) {
-						glBegin(GL_QUADS);
-						    // Front Face
-						    glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, -1.0f,  1.0f);  // Bottom Left Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, -1.0f,  1.0f);  // Bottom Right Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f,  1.0f,  1.0f);  // Top Right Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f,  1.0f,  1.0f);  // Top Left Of The Texture and Quad
-						glEnd();
-					}
-					
-					// Left
-					if (v_c[4]->value > 0 && v_c[3]->value <= 0) {
-						glBegin(GL_QUADS);
-						    // Left Face
-						    glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, -1.0f, -1.0f);  // Bottom Left Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, -1.0f,  1.0f);  // Bottom Right Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f,  1.0f,  1.0f);  // Top Right Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f,  1.0f, -1.0f);  // Top Left Of The Texture and Quad
-						glEnd();
-					}
-					
-					// Right
-					if (v_c[4]->value > 0 && v_c[5]->value <= 0) {
-						glBegin(GL_QUADS);
-						    // Right face
-						    glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, -1.0f, -1.0f);  // Bottom Right Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f,  1.0f, -1.0f);  // Top Right Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f,  1.0f,  1.0f);  // Top Left Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, -1.0f,  1.0f);  // Bottom Left Of The Texture and Quad
-						glEnd();
-					}
-					
-					// vertikalni plocha - front
-					/*if (v_c[3]->value > 0 && v_c[4]->value > 0 && v_c[5]->value > 0 && v_t[4]->value > 0 && v_b[4]->value > 0) {
-						glBegin(GL_QUADS);
-						    // Front Face
-						    glColor4ub(0, c_q, 0, 0); glVertex3f(-1.0f, -1.0f,  1.0f);  // Bottom Left Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f( 1.0f, -1.0f,  1.0f);  // Bottom Right Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f( 1.0f,  1.0f,  1.0f);  // Top Right Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f(-1.0f,  1.0f,  1.0f);  // Top Left Of The Texture and Quad
-						glEnd();	
-					} else					
-					// vertikalni plocha - back
-					if (v_c[6]->value > 0 && v_c[7]->value > 0 && v_c[8]->value > 0 && v_t[7]->value > 0 && v_b[7]->value > 0) {
-						glBegin(GL_QUADS);
-						    // Back Face
-						    glColor4ub(0, c_q, 0, 0); glVertex3f(-1.0f, -1.0f, -1.0f);  // Bottom Right Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f(-1.0f,  1.0f, -1.0f);  // Top Right Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f( 1.0f,  1.0f, -1.0f);  // Top Left Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f( 1.0f, -1.0f, -1.0f);  // Bottom Left Of The Texture and Quad
-						glEnd();	
-					}			
-					
-					// vertikalni plocha - left
-					if (v_c[0]->value > 0 && v_c[3]->value > 0 && v_c[6]->value > 0 && v_t[3]->value > 0 && v_b[3]->value > 0) {
-						glBegin(GL_QUADS);
-						    // Left Face
-						    glColor4ub(0, c_q, 0, 0); glVertex3f(-1.0f, -1.0f, -1.0f);  // Bottom Left Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f(-1.0f, -1.0f,  1.0f);  // Bottom Right Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f(-1.0f,  1.0f,  1.0f);  // Top Right Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f(-1.0f,  1.0f, -1.0f);  // Top Left Of The Texture and Quad
-						glEnd();	
-					} else					
-					// vertikalni plocha - right
-					if (v_c[2]->value > 0 && v_c[5]->value > 0 && v_c[8]->value > 0 && v_t[5]->value > 0 && v_b[5]->value > 0) {
-						glBegin(GL_QUADS);
-						    // Right face
-						    glColor4ub(0, c_q, 0, 0); glVertex3f( 1.0f, -1.0f, -1.0f);  // Bottom Right Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f( 1.0f,  1.0f, -1.0f);  // Top Right Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f( 1.0f,  1.0f,  1.0f);  // Top Left Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f( 1.0f, -1.0f,  1.0f);  // Bottom Left Of The Texture and Quad
-						glEnd();	
-					}*/		
-					
-					/* vertikalni plochy */
-					/*if (v_c[4]->value > 0 && ((v_c[3]->value > 0 && v_c[5]->value > 0) || (v_c[0]->value > 0 && v_c[7]->value > 0)
-						|| (v_b[4]->value > 0 && v_t[4]->value > 0))) {
-						glBegin(GL_QUADS);
-						    // Front Face
-						    glColor4ub(0, c_q, 0, 0); glVertex3f(-1.0f, -1.0f,  1.0f);  // Bottom Left Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f( 1.0f, -1.0f,  1.0f);  // Bottom Right Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f( 1.0f,  1.0f,  1.0f);  // Top Right Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f(-1.0f,  1.0f,  1.0f);  // Top Left Of The Texture and Quad
-						    // Back Face
-						    glColor4ub(0, c_q, 0, 0); glVertex3f(-1.0f, -1.0f, -1.0f);  // Bottom Right Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f(-1.0f,  1.0f, -1.0f);  // Top Right Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f( 1.0f,  1.0f, -1.0f);  // Top Left Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f( 1.0f, -1.0f, -1.0f);  // Bottom Left Of The Texture and Quad
-						    // Right face
-						    glColor4ub(0, c_q, 0, 0); glVertex3f( 1.0f, -1.0f, -1.0f);  // Bottom Right Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f( 1.0f,  1.0f, -1.0f);  // Top Right Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f( 1.0f,  1.0f,  1.0f);  // Top Left Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f( 1.0f, -1.0f,  1.0f);  // Bottom Left Of The Texture and Quad
-						    // Left Face
-						    glColor4ub(0, c_q, 0, 0); glVertex3f(-1.0f, -1.0f, -1.0f);  // Bottom Left Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f(-1.0f, -1.0f,  1.0f);  // Bottom Right Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f(-1.0f,  1.0f,  1.0f);  // Top Right Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f(-1.0f,  1.0f, -1.0f);  // Top Left Of The Texture and Quad
-						glEnd();	
-					} */
-					
-					/* sikma plocha */
-					/*if (v_c[4]->value > 0 && v_t[4]->value <= 0 && v_t[7]->value > 0) {
-						glBegin(GL_QUADS);
-						    // Top Face
-						    glColor4ub(0, c_q, 0, 0); glVertex3f(-1.0f,  1, -1.0f);  // Top Left Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f(-1.0f,  1,  1.0f);  // Bottom Left Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f( 1.0f,  -1,  1.0f);  // Bottom Right Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f( 1.0f,  -1, -1.0f);  // Top Right Of The Texture and Quad
-						glEnd();		
-					}*/
-					
-					/*if (v_c[4]->value > 0 && v_t[4]->value <= 0 && v_t[0]->value > 0 && v_t[1]->value > 0 && v_t[2]->value > 0) {
-						glBegin(GL_QUADS);
-						    // Top Face
-						    glColor4ub(0, c_q, 0, 0); glVertex3f(-1.0f,  -1, -1.0f);  // Top Left Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f(-1.0f,  1,  1.0f);  // Bottom Left Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f( 1.0f,  1,  1.0f);  // Bottom Right Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f( 1.0f,  -1, -1.0f);  // Top Right Of The Texture and Quad
-						glEnd();	
-					}*/
-					
-					
-					//glBindTexture (GL_TEXTURE_2D, tex_get (0));
-					/*voxel_t *v_a[9];
-					v_a[0] = terrain_voxel_get (x-1, y-1);
-					v_a[1] = terrain_voxel_get (x, y-1);
-					v_a[2] = terrain_voxel_get (x+1, y-1);
-					v_a[3] = terrain_voxel_get (x-1, y);
-					v_a[4] = terrain_voxel_get (x, y);
-					v_a[5] = terrain_voxel_get (x+1, y);
-					v_a[6] = terrain_voxel_get (x-1, y+1);
-					v_a[7] = terrain_voxel_get (x, y+1);
-					v_a[8] = terrain_voxel_get (x+1, y+1);
+	voxel_t *v_c[9];
+	v_c[0] = terrain_voxel_get (x-1, y-1, z);
+	v_c[1] = terrain_voxel_get (x, y-1, z);
+	v_c[2] = terrain_voxel_get (x+1, y-1, z);
+	v_c[3] = terrain_voxel_get (x-1, y, z);
+	v_c[4] = terrain_voxel_get (x, y, z);
+	v_c[5] = terrain_voxel_get (x+1, y, z);
+	v_c[6] = terrain_voxel_get (x-1, y+1, z);
+	v_c[7] = terrain_voxel_get (x, y+1, z);
+	v_c[8] = terrain_voxel_get (x+1, y+1, z);
+	
+	voxel_t *v_t[9];
+	v_t[0] = terrain_voxel_get (x-1, y-1, z+1);
+	v_t[1] = terrain_voxel_get (x, y-1, z+1);
+	v_t[2] = terrain_voxel_get (x+1, y-1, z+1);
+	v_t[3] = terrain_voxel_get (x-1, y, z+1);
+	v_t[4] = terrain_voxel_get (x, y, z+1);
+	v_t[5] = terrain_voxel_get (x+1, y, z+1);
+	v_t[6] = terrain_voxel_get (x-1, y+1, z+1);
+	v_t[7] = terrain_voxel_get (x, y+1, z+1);
+	v_t[8] = terrain_voxel_get (x+1, y+1, z+1);
+	
+	float c_q = (v_c[4]->value + 1) * 127;
 
-					float v_q[4];
-					v_q[0] = (v_a[0]->value + v_a[1]->value + v_a[3]->value + v_a[4]->value) / 4;
-					v_q[1] = (v_a[1]->value + v_a[2]->value + v_a[5]->value + v_a[4]->value) / 4;
-					v_q[2] = (v_a[3]->value + v_a[6]->value + v_a[7]->value + v_a[4]->value) / 4;
-					v_q[3] = (v_a[5]->value + v_a[7]->value + v_a[8]->value + v_a[4]->value) / 4;
+	if (v_c[4] < 0) {
+		glPopMatrix ();
+		return;
+	}
+	
+	/* do not process voxel inside a voxelo-polygon */
+	if ((v_c[3]->value > 0.0f && v_c[5]->value > 0.0f && v_c[1]->value > 0.0f &&
+		v_c[7]->value > 0.0f && v_b[4]->value > 0.0f && v_t[4]->value > 0.0f)) {
+		glPopMatrix ();
 
-					float c_q[4];
-					c_q[0] = (v_q[0] + 1) * 127;
-					c_q[1] = (v_q[1] + 1) * 127;
-					c_q[2] = (v_q[2] + 1) * 127;
-					c_q[3] = (v_q[3] + 1) * 127;*/
-					
-					/*float val = v_c[4]->value;
+		return;
+	}
 
-					if (val > 0.0f) {
-						float c_q;
-						c_q = (val + 1) * 127;
+	voxel_t **v_x = v_t;
+	float s = 1.0f;	
+		
+	while (1) {
+		if (v_c[4]->value > 0 && v_x[4]->value <= 0) {
+			if (v_x[5]->value > 0) {
 
-						glBegin(GL_QUADS);
-						    // Front Face
-						    glColor4ub(0, c_q, 0, 0); glVertex3f(-1.0f, -1.0f,  1.0f);  // Bottom Left Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f( 1.0f, -1.0f,  1.0f);  // Bottom Right Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f( 1.0f,  1.0f,  1.0f);  // Top Right Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f(-1.0f,  1.0f,  1.0f);  // Top Left Of The Texture and Quad
-						    // Back Face
-						    glColor4ub(0, c_q, 0, 0); glVertex3f(-1.0f, -1.0f, -1.0f);  // Bottom Right Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f(-1.0f,  1.0f, -1.0f);  // Top Right Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f( 1.0f,  1.0f, -1.0f);  // Top Left Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f( 1.0f, -1.0f, -1.0f);  // Bottom Left Of The Texture and Quad
-						    // Top Face
-						    glColor4ub(0, c_q, 0, 0); glVertex3f(-1.0f,  1, -1.0f);  // Top Left Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f(-1.0f,  1,  1.0f);  // Bottom Left Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f( 1.0f,  1,  1.0f);  // Bottom Right Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f( 1.0f,  1, -1.0f);  // Top Right Of The Texture and Quad
-						    // Bottom Face
-						    glColor4ub(0, c_q, 0, 0); glVertex3f(-1.0f, -1.0f, -1.0f);  // Top Right Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f( 1.0f, -1.0f, -1.0f);  // Top Left Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f( 1.0f, -1.0f,  1.0f);  // Bottom Left Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f(-1.0f, -1.0f,  1.0f);  // Bottom Right Of The Texture and Quad
-						    // Right face
-						    glColor4ub(0, c_q, 0, 0); glVertex3f( 1.0f, -1.0f, -1.0f);  // Bottom Right Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f( 1.0f,  1.0f, -1.0f);  // Top Right Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f( 1.0f,  1.0f,  1.0f);  // Top Left Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f( 1.0f, -1.0f,  1.0f);  // Bottom Left Of The Texture and Quad
-						    // Left Face
-						    glColor4ub(0, c_q, 0, 0); glVertex3f(-1.0f, -1.0f, -1.0f);  // Bottom Left Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f(-1.0f, -1.0f,  1.0f);  // Bottom Right Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f(-1.0f,  1.0f,  1.0f);  // Top Right Of The Texture and Quad
-						    glColor4ub(0, c_q, 0, 0); glVertex3f(-1.0f,  1.0f, -1.0f);  // Top Left Of The Texture and Quad
-						glEnd();
-					}*/
-end:
-				glPopMatrix ();
+				glBegin(GL_QUADS);
+					// horizontal Face top
+					glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*1, -1.0f);  // Top Left Of The Texture and Quad
+					glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*1,  1.0f);  // Bottom Left Of The Texture and Quad
+					glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*3,  1.0f);  // Bottom Right Of The Texture and Quad
+					glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*3, -1.0f);  // Top Right Of The Texture and Quad
+				glEnd();
+
+				glBegin(GL_TRIANGLES);
+					glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*3, -1.0f);  // Bottom Left Of The Texture and Quad
+					glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*1, -1.0f);  // Bottom Right Of The Texture and Quad
+					glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*1, -1.0f);  // Top Right Of The Texture and Quad
+				glEnd();
+
+				glBegin(GL_TRIANGLES);
+					glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*3, 1.0f);  // Bottom Left Of The Texture and Quad
+					glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*1, 1.0f);  // Bottom Right Of The Texture and Quad
+					glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*1, 1.0f);  // Top Right Of The Texture and Quad
+				glEnd();
+			} else if (v_x[3]->value > 0) { 
+				glBegin(GL_QUADS);
+					// horizontal Face top
+					glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*3, -1.0f);  // Top Left Of The Texture and Quad
+					glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*3,  1.0f);  // Bottom Left Of The Texture and Quad
+					glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*1,  1.0f);  // Bottom Right Of The Texture and Quad
+					glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*1, -1.0f);  // Top Right Of The Texture and Quad
+				glEnd();
+
+				glBegin(GL_TRIANGLES);
+					glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*3, -1.0f);  // Bottom Left Of The Texture and Quad
+					glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*1, -1.0f);  // Bottom Right Of The Texture and Quad
+					glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*1, -1.0f);  // Top Right Of The Texture and Quad
+				glEnd();
+
+				glBegin(GL_TRIANGLES);
+					glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*3, 1.0f);  // Bottom Left Of The Texture and Quad
+					glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*1, 1.0f);  // Bottom Right Of The Texture and Quad
+					glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*1, 1.0f);  // Top Right Of The Texture and Quad
+				glEnd();
+			} else if (v_x[7]->value > 0) { 
+				glBegin(GL_QUADS);
+					// horizontal Face top
+					glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*1, -1.0f);  // Top Left Of The Texture and Quad
+					glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*3,  1.0f);  // Bottom Left Of The Texture and Quad
+					glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*3,  1.0f);  // Bottom Right Of The Texture and Quad
+					glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*1, -1.0f);  // Top Right Of The Texture and Quad
+				glEnd();
+
+				glBegin(GL_TRIANGLES);
+					glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*1, -1.0f);  // Bottom Left Of The Texture and Quad
+					glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*3, 1.0f);  // Bottom Right Of The Texture and Quad
+					glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*1, 1.0f);  // Top Right Of The Texture and Quad
+				glEnd();
+
+				glBegin(GL_TRIANGLES);
+					glColor4ub(0, c_q, 0, 255); glVertex3f(1.0f, s*1, -1.0f);  // Bottom Left Of The Texture and Quad
+					glColor4ub(0, c_q, 0, 255); glVertex3f(1.0f, s*3, 1.0f);  // Bottom Right Of The Texture and Quad
+					glColor4ub(0, c_q, 0, 255); glVertex3f(1.0f, s*1, 1.0f);  // Top Right Of The Texture and Quad
+				glEnd();
+			} else if (v_x[1]->value > 0) { 
+				glBegin(GL_QUADS);
+					// horizontal Face top
+					glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*3, -1.0f);  // Top Left Of The Texture and Quad
+					glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*1,  1.0f);  // Bottom Left Of The Texture and Quad
+					glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*1,  1.0f);  // Bottom Right Of The Texture and Quad
+					glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*3, -1.0f);  // Top Right Of The Texture and Quad
+				glEnd();	
+
+				glBegin(GL_TRIANGLES);
+					glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*3, -1.0f);  // Bottom Left Of The Texture and Quad
+					glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*1, -1.0f);  // Bottom Right Of The Texture and Quad
+					glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*1, 1.0f);  // Top Right Of The Texture and Quad
+				glEnd();
+
+				glBegin(GL_TRIANGLES);
+					glColor4ub(0, c_q, 0, 255); glVertex3f(1.0f, s*3, -1.0f);  // Bottom Left Of The Texture and Quad
+					glColor4ub(0, c_q, 0, 255); glVertex3f(1.0f, s*1, -1.0f);  // Bottom Right Of The Texture and Quad
+					glColor4ub(0, c_q, 0, 255); glVertex3f(1.0f, s*1, 1.0f);  // Top Right Of The Texture and Quad
+				glEnd();
+			} else if (v_x[8]->value > 0 && v_x[7]->value <= 0 && v_x[5]->value <= 0) { 
+				glBegin(GL_QUADS);
+					// horizontal Face top
+					glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*1, -1.0f);  // Top Left Of The Texture and Quad
+					glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*1,  1.0f);  // Bottom Left Of The Texture and Quad
+					glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*3,  1.0f);  // Bottom Right Of The Texture and Quad
+					glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*1, -1.0f);  // Top Right Of The Texture and Quad
+				glEnd();	
+			} else if (v_x[2]->value > 0 && v_x[5]->value <= 0 && v_x[1]->value <= 0) { 
+				glBegin(GL_QUADS);
+					// horizontal Face top
+					glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*1, -1.0f);  // Top Left Of The Texture and Quad
+					glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*1,  1.0f);  // Bottom Left Of The Texture and Quad
+					glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*1,  1.0f);  // Bottom Right Of The Texture and Quad
+					glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*3, -1.0f);  // Top Right Of The Texture and Quad
+				glEnd();	
+			} else if (v_x[0]->value > 0 && v_x[1]->value <= 0 && v_x[3]->value <= 0) { 
+				glBegin(GL_QUADS);
+					// horizontal Face top
+					glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*3, -1.0f);  // Top Left Of The Texture and Quad
+					glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*1,  1.0f);  // Bottom Left Of The Texture and Quad
+					glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*1,  1.0f);  // Bottom Right Of The Texture and Quad
+					glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*1, -1.0f);  // Top Right Of The Texture and Quad
+				glEnd();	
+			} else if (v_x[6]->value > 0 && v_x[7]->value <= 0 && v_x[3]->value <= 0) { 
+				glBegin(GL_QUADS);
+					// horizontal Face top
+					glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*1, -1.0f);  // Top Left Of The Texture and Quad
+					glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*3,  1.0f);  // Bottom Left Of The Texture and Quad
+					glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*1,  1.0f);  // Bottom Right Of The Texture and Quad
+					glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*1, -1.0f);  // Top Right Of The Texture and Quad
+				glEnd();	
+			} else {
+				glBegin(GL_QUADS);
+					// horizontal Face top
+					glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*1, -1.0f);  // Top Left Of The Texture and Quad
+					glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, s*1,  1.0f);  // Bottom Left Of The Texture and Quad
+					glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*1,  1.0f);  // Bottom Right Of The Texture and Quad
+					glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, s*1, -1.0f);  // Top Right Of The Texture and Quad
+				glEnd();
 			}
 		}
+		
+		// switch to bottom
+		if (s == -1.0f)
+			break;
+		
+		s = -1.0f;
+		v_x = v_b;
 	}
+	
+	// Back
+	if (v_c[4]->value > 0 && v_c[1]->value <= 0) {
+		glBegin(GL_QUADS);
+		    // Back Face
+		    glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, -1.0f, -1.0f);  // Bottom Right Of The Texture and Quad
+		    glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f,  1.0f, -1.0f);  // Top Right Of The Texture and Quad
+		    glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f,  1.0f, -1.0f);  // Top Left Of The Texture and Quad
+		    glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, -1.0f, -1.0f);  // Bottom Left Of The Texture and Quad
+		glEnd();
+	}
+	
+	// Front
+	if (v_c[4]->value > 0 && v_c[7]->value <= 0) {
+		glBegin(GL_QUADS);
+		    // Front Face
+		    glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, -1.0f,  1.0f);  // Bottom Left Of The Texture and Quad
+		    glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, -1.0f,  1.0f);  // Bottom Right Of The Texture and Quad
+		    glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f,  1.0f,  1.0f);  // Top Right Of The Texture and Quad
+		    glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f,  1.0f,  1.0f);  // Top Left Of The Texture and Quad
+		glEnd();
+	}
+	
+	// Left
+	if (v_c[4]->value > 0 && v_c[3]->value <= 0) {
+		glBegin(GL_QUADS);
+		    // Left Face
+		    glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, -1.0f, -1.0f);  // Bottom Left Of The Texture and Quad
+		    glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f, -1.0f,  1.0f);  // Bottom Right Of The Texture and Quad
+		    glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f,  1.0f,  1.0f);  // Top Right Of The Texture and Quad
+		    glColor4ub(0, c_q, 0, 255); glVertex3f(-1.0f,  1.0f, -1.0f);  // Top Left Of The Texture and Quad
+		glEnd();
+	}
+	
+	// Right
+	if (v_c[4]->value > 0 && v_c[5]->value <= 0) {
+		glBegin(GL_QUADS);
+		    // Right face
+		    glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, -1.0f, -1.0f);  // Bottom Right Of The Texture and Quad
+		    glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f,  1.0f, -1.0f);  // Top Right Of The Texture and Quad
+		    glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f,  1.0f,  1.0f);  // Top Left Of The Texture and Quad
+		    glColor4ub(0, c_q, 0, 255); glVertex3f( 1.0f, -1.0f,  1.0f);  // Bottom Left Of The Texture and Quad
+		glEnd();
+	}
+
+	glPopMatrix ();	
 #endif
-	
-	octree_t *root = octree_root_get ();
-	
-	//octree_t *node = root;
-	
-	gl_render_octree_mesh (root);
-	//}
+
 }
 
 void gl_render ()
@@ -631,7 +374,11 @@ void gl_render ()
 	glRotatef (c->rot_x, 0, 1, 0);
 	glTranslatef (c->pos_x, c->pos_z, c->pos_y);
 
-	gl_render_terrain ();
+	octree_t *root = octree_root_get ();
+
+	gl_render_terrain (root);
+	
+	//gl_render_octree_mesh (root);
 
 	glFlush ();
 	SDL_GL_SwapBuffers ();// Prohodi predni a zadni buffer
