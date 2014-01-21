@@ -1,10 +1,28 @@
-CXX?=g++
-LIBS=-lSDL -lSDL_image -lGL -lGLU `sdl-config --cflags --libs`
-#LIBS_DIR?=-L/usr/lib32/nvidia-experimental-310/ -L/home/tomas/Programming/SDL-1.2.15/build/.libs -L/home/tomas/Programming/SDL_image-1.2.12/.libs -L/usr/lib/i386-linux-gnu/
-#CFLAGS?=-m32
+#
+#  (C) Copyright 2014 ZeXx86 (tomasj@spirit-system.com)
+#  (C) Copyright 2013 ZeXx86 (tomasj@spirit-system.com)
+#
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License as published by
+#   the Free Software Foundation; either version 2 of the License, or
+#   (at your option) any later version.
+#
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License for more details.
+#
+#   You should have received a copy of the GNU General Public License
+#   along with this program; if not, write to the Free Software
+#   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+#
 
-gen: main.o gl.o event.o mouse.o kbd.o camera.o terrain.o logic.o octree.o
-	$(CXX) $(CFLAGS) main.o gl.o event.o mouse.o kbd.o camera.o terrain.o logic.o octree.o $(LIBS_DIR) $(LIBS) -o gen
+CXX=g++
+LIBS=-lGL -lGLU `sdl2-config --cflags --libs` -lSDL2_ttf -lSDL2_image
+CXXFLAGS=-O3
+
+gen: main.o gl.o event.o mouse.o kbd.o camera.o terrain.o logic.o octree.o tex.o frustum.o polygonise.o font.o water.o
+	$(CXX) $(CXXFLAGS) main.o gl.o event.o mouse.o kbd.o camera.o terrain.o logic.o octree.o tex.o frustum.o polygonise.o font.o water.o $(LIBS_DIR) $(LIBS) -o gen
 
 clean:
 	rm -f *.o gen

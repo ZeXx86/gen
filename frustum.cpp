@@ -18,18 +18,25 @@
  *
  */
 
-#ifndef __tex_h__
-#define __tex_h__
+#include "gen.h"
+#include "camera.h"
+#include "terrain.h"
+#include "polygonise.h"
 
-#include <SDL/SDL_opengl.h>
-#include <SDL/SDL_image.h>
-#include <string.h>
-#include <stdlib.h>
-#include <stdio.h>
+bool frustum_check (terrain_t *t, camera_t *c)
+{
+	/* FRUSTUM CULLING */
+	float f_x = (sinf (M_PI/180 * -c->rot_x) * (t->origin_x+c->pos_x) + cosf (M_PI/180 * -c->rot_x) * (t->origin_y+c->pos_y));/* + sinf (M_PI/180 * (-c->rot_y)) * -c->pos_z;*/
+	float f_y = sinf (M_PI/180 * (c->rot_y)) * c->pos_z;
+	
+	if (0 < f_x)
+		return false;
+	
+	return true;
+}
 
-extern GLuint tex_get (unsigned id);
-extern bool tex_init ();
-extern void tex_deinit ();
-
-#endif
-
+bool frustum_init ()
+{
+	
+	return true;
+}

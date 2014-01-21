@@ -18,18 +18,14 @@
  *
  */
 
-#ifndef __tex_h__
-#define __tex_h__
+#ifndef __water_h__
+#define __water_h__
 
-#include <SDL/SDL_opengl.h>
-#include <SDL/SDL_image.h>
-#include <string.h>
-#include <stdlib.h>
-#include <stdio.h>
+#define	WATER_RES	128
+#define WATER_DIM	150
 
-extern GLuint tex_get (unsigned id);
-extern bool tex_init ();
-extern void tex_deinit ();
+extern void gl_water_render ();
+extern bool gl_water_init ();
 
 #endif
 

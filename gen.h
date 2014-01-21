@@ -1,28 +1,47 @@
+/*
+ *  (C) Copyright 2014 ZeXx86 (tomasj@spirit-system.com)
+ *  (C) Copyright 2013 ZeXx86 (tomasj@spirit-system.com)
+ *
+ *   This program is free software; you can redistribute it and/or modify
+ *   it under the terms of the GNU General Public License as published by
+ *   the Free Software Foundation; either version 2 of the License, or
+ *   (at your option) any later version.
+ *
+ *   This program is distributed in the hope that it will be useful,
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *   GNU General Public License for more details.
+ *
+ *   You should have received a copy of the GNU General Public License
+ *   along with this program; if not, write to the Free Software
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ *
+ */
+
 #ifndef __gen_h__
 #define __gen_h__
 
 #include <math.h>
 #include <iostream>
-#include <SDL/SDL.h>
+#include <SDL2/SDL.h>
 
 #define SDL_SUBSYSTEMS SDL_INIT_VIDEO
 
-#ifndef ANDROID
-# define WIN_FLAGS SDL_OPENGL | SDL_RESIZABLE/* | SDL_FULLSCREEN*/
-# define WIN_WIDTH 1600
+#ifndef ANDROID	/* nastaveni zobrazeni pro platformu PC */
+# define WIN_FLAGS SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE// | SDL_WINDOW_FULLSCREEN_DESKTOP
+# define WIN_WIDTH 1280
 # define WIN_HEIGHT 1024
 # define WIN_BPP 0
-# define FSAA 2
-#else
-# define WIN_FLAGS SDL_OPENGL | SDL_RESIZABLE | SDL_FULLSCREEN
-# define WIN_WIDTH 800
-# define WIN_HEIGHT 480
+# define FSAA 1
+#else		/* nastaveni zobrazeni pro Android */
+# define WIN_FLAGS SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE
+# define WIN_WIDTH 480
+# define WIN_HEIGHT 800
 # define WIN_BPP 0
 # define FSAA 0
 #endif
 
 #define WIN_TITLE "OpenGL/Voxel Terrain Generator"
-
 
 #ifndef __WIN32__
 # define CALL_SETVIDEOMODE_WHEN_RESIZING
@@ -30,7 +49,7 @@
 
 using namespace std;
 
-extern SDL_Surface *g_screen;
+extern SDL_Window *g_window;
 
 #endif
 
