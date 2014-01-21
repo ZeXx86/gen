@@ -5,11 +5,12 @@ Licence:
 	`GNU/GPL 2`
 
 Zavislosti:
- * gcc
+ * g++
  * make
  * sdl2
  * sdl2-image
  * sdl2-ttf
+ * Fungujici OpenGL
 	
 Kompilace:
 	`make`
