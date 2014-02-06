@@ -21,7 +21,7 @@
 #ifndef __kbd_h__
 #define __kbd_h__
 
-#include <SDL/SDL.h>
+#include <SDL2/SDL.h>
 
 typedef struct {
 	SDL_Event event;

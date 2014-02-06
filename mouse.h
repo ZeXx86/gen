@@ -25,6 +25,9 @@ typedef struct {
 	int x;
 	int y;
 
+	int abs_x;
+	int abs_y;
+	
 	unsigned char state;
 } mouse_t;
 

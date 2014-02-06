@@ -40,6 +40,7 @@ static float gl_water_z (const float x, const float y, const float t)
 
 void gl_water_render ()
 {
+#ifndef ANDROID
 	glPushMatrix ();	
 	
 	unsigned int indice;
@@ -204,6 +205,7 @@ void gl_water_render ()
 	//glDisable (GL_BLEND);
 	
 	glPopMatrix ();	
+#endif
 }
 
 bool gl_water_init ()

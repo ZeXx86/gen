@@ -37,23 +37,27 @@ GLuint fogMode[] = { GL_EXP, GL_EXP2, GL_LINEAR };   	// Storage For Three Types
 GLuint fogfilter = 0;                   			// Which Fog To Use
 GLfloat fogColor[4] = {0.5f, 0.5f, 0.5f, 1.0f};      	// Fog Color
 
-char prep = 0;
-
 #define RENDER_TERRAIN	1
 
 bool gl_init ()
 {
 	glClearColor (0.5, 0.5, 1.0, 0.0);
+#ifdef ANDROID
+	glClearDepthf (1.0);
+#else
 	glClearDepth (1.0);
+#endif
 	glDepthFunc (GL_LEQUAL);
 	glEnable (GL_DEPTH_TEST);
 	glShadeModel (GL_SMOOTH);
 	glHint (GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
 	glEnable (GL_TEXTURE_2D);
-
+#ifndef ANDROID
 	glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glEnable (GL_BLEND);
 	glDisable (GL_ALPHA_TEST);
+	
+	glBlendColor(0.5f, 0.5f, 0.5f, 0.5f);
 	
 	glFogi (GL_FOG_MODE, fogMode[1]);	// Fog Mode
 	glFogfv (GL_FOG_COLOR, fogColor);            	// Set Fog Color
@@ -62,7 +66,7 @@ bool gl_init ()
 	glFogf (GL_FOG_START, 5.0f);             	// Fog Start Depth
 	glFogf (GL_FOG_END, 10.0f);               	// Fog End Depth
 	glEnable (GL_FOG);                   		// Enables GL_FOG
-	
+#endif
 	
 	GLfloat mat_ambient[] = { 0.5, 1.0, 0.5, 1.0 };
 	GLfloat mat_diffuse[] = { 0.5, 0.5, 0.5, 1.0 };
@@ -75,10 +79,8 @@ bool gl_init ()
 	glMaterialfv(GL_FRONT, GL_SHININESS, mat_shininess);
 	
 
-	
 	//glEnable(GL_LIGHTING);
 	//glEnable(GL_LIGHT0);
-	
 	
 	//glEnable (GL_CULL_FACE);
 	//glCullFace (GL_FRONT);
@@ -98,8 +100,6 @@ bool gl_init ()
 	//glLightfv(GL_LIGHT0, GL_POSITION, position);
 	
 	glEnable(GL_LIGHT0);*/
-	
-	glBlendColor(0.5f, 0.5f, 0.5f, 0.5f);
 
 	gl_mutex = SDL_CreateMutex ();
 	if (!gl_mutex) {
@@ -110,6 +110,21 @@ bool gl_init ()
 	return true;
 }
 
+#ifdef ANDROID
+static void gluPerspective (GLfloat fovy, GLfloat aspect, GLfloat z_near, GLfloat z_far)
+{
+	GLfloat xmin, xmax, ymin, ymax;
+
+	ymax = z_near * (GLfloat) tan (fovy * M_PI / 360);
+	ymin = -ymax;
+	xmin = ymin * aspect;
+	xmax = ymax * aspect;
+
+	glFrustumx ((GLfixed) (xmin * 65536), (GLfixed) (xmax * 65536),
+			(GLfixed) (ymin * 65536), (GLfixed) (ymax * 65536),
+			(GLfixed) (z_near * 65536), (GLfixed) (z_far * 65536));
+}
+#endif
 void gl_resize (int width, int height)
 {
 	if (height == 0)
@@ -178,7 +193,7 @@ bool gl_prepare_terrain (terrain_t *t)
 		if (trg_buf == NULL)
 			return false;
 		
-		col_buf = (float *) realloc ((float *) col_buf, (trg_num+n) * sizeof (float) * 9);
+		col_buf = (float *) realloc ((float *) col_buf, (trg_num+n) * sizeof (float) * 12);
 			
 		if (col_buf == NULL)
 			return false;
@@ -228,17 +243,22 @@ bool gl_prepare_terrain (terrain_t *t)
 			trg_buf[idx+7] = trg[i].p[2].y;
 			trg_buf[idx+8] = trg[i].p[2].z;
 			
-			col_buf[idx+0] = 0;
-			col_buf[idx+1] = color;
-			col_buf[idx+2] = 0;
+			int cidx = (trg_num+i) * 12;
 			
-			col_buf[idx+3] = 0;
-			col_buf[idx+4] = color;
-			col_buf[idx+5] = 0;
+			col_buf[cidx+0] = 0.0f;
+			col_buf[cidx+1] = color;
+			col_buf[cidx+2] = 0.0f;
+			col_buf[cidx+3] = 1;
 			
-			col_buf[idx+6] = 0;
-			col_buf[idx+7] = color;
-			col_buf[idx+8] = 0;
+			col_buf[cidx+4] = 0.0f;
+			col_buf[cidx+5] = color;
+			col_buf[cidx+6] = 0.0f;
+			col_buf[cidx+7] = 1;
+			
+			col_buf[cidx+8] = 0.0f;
+			col_buf[cidx+9] = color;
+			col_buf[cidx+10] = 0.0f;
+			col_buf[cidx+11] = 1;
 			
 			int tidx = (trg_num+i) * 6;
 			
@@ -269,10 +289,7 @@ bool gl_prepare_terrain (terrain_t *t)
 		free (buf_vert);
 		free (buf_col);
 		free (buf_tex);
-	}
-	
-	prep = 1;
-	
+	}	
 	//t->gl_buf_tex2 = tex2_buf;
 	//glEndList ();
 	
@@ -287,6 +304,7 @@ void gl_delete_terrain (terrain_t *t)
 /* vykreslovani SkyBoxu - enviromentalni mapy */
 void gl_render_skybox ()
 {
+#ifndef ANDROID
 	glPushMatrix ();
 
 	glScalef (350, 350, 350);
@@ -346,7 +364,8 @@ void gl_render_skybox ()
 		glTexCoord2f (1, 0); glVertex3f (  0.5f, -0.5f, -0.5f );
 	glEnd();
 	
-	glPopMatrix ();	
+	glPopMatrix ();
+#endif
 }
 
 /* DEPRECATED - pravdepodobne se jiz nebude vyuzivat */
@@ -372,7 +391,7 @@ void gl_render_octree_mesh (terrain_t *t, camera_t *c, octree_t *node)
 	glScalef (node->size_x*1.001f, node->size_z*1.001f, node->size_y*1.001f);
 		
 	float c_q = 255;
-
+#ifndef ANDROID
 	glBegin (GL_QUADS);
 		// Front Face
 		glColor4ub (0, c_q, 0, 60); glVertex3f (-1.0f, -1.0f,  1.0f);  
@@ -405,16 +424,15 @@ void gl_render_octree_mesh (terrain_t *t, camera_t *c, octree_t *node)
 		glColor4ub (0, c_q, 0, 60); glVertex3f (-1.0f,  1.0f,  1.0f);  
 		glColor4ub (0, c_q, 0, 60); glVertex3f (-1.0f,  1.0f, -1.0f);  
 	glEnd ();
-	
+#endif
 	glPopMatrix ();
 }
 
 void gl_render_terrain (terrain_t *t, camera_t *c)
 {
-// 	extern int polygonise_grid (gridcell_t grid, double isolevel, triangle_t *triangles);
-
 	if (!t->gl_buf_len)
 		return;
+//#define FRUSTUM 1
 #ifdef FRUSTUM
 	if (frustum_check (t, c) == false)
 		return;
@@ -423,40 +441,23 @@ void gl_render_terrain (terrain_t *t, camera_t *c)
 	glPushMatrix ();
 
 	glTranslatef (t->origin_x-TERRAIN_DIM, t->origin_z, t->origin_y-TERRAIN_DIM);
-	
-	glBindTexture (GL_TEXTURE_2D, tex_get (0));
-	
-	glEnableClientState (GL_VERTEX_ARRAY);
-	glEnableClientState (GL_COLOR_ARRAY);
-	glEnableClientState (GL_TEXTURE_COORD_ARRAY);
 		
-	glColorPointer (3, GL_FLOAT, 0, t->gl_buf_col);
+	glEnableClientState (GL_VERTEX_ARRAY);
 	glVertexPointer (3, GL_FLOAT, 0, t->gl_buf_vert);
+
+	glEnableClientState (GL_COLOR_ARRAY);
+	glColorPointer (4, GL_FLOAT, 0, t->gl_buf_col);
+#ifndef ANDROID
+	glEnableClientState (GL_TEXTURE_COORD_ARRAY);
 	glTexCoordPointer (2, GL_FLOAT, 0, t->gl_buf_tex);
-	
-	/*glClientActiveTexture (GL_TEXTURE0);
-	glActiveTexture (GL_TEXTURE0);
-	glEnableClientState(GL_TEXTURE_COORD_ARRAY);	
-	glBindTexture (GL_TEXTURE_2D, tex_get (0));
-	glTexEnvf (GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE); 
-	glTexCoordPointer (2, GL_FLOAT, 0, t->gl_buf_tex);
-	glEnable(GL_TEXTURE_2D);
-	
-	glClientActiveTexture (GL_TEXTURE1);
- 	glActiveTexture (GL_TEXTURE1);
-	glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-	glBindTexture (GL_TEXTURE_2D, tex_get (1));
-	glTexEnvf (GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE); 
-	glTexCoordPointer (2, GL_FLOAT, 0, t->gl_buf_tex2);
-	glEnable(GL_TEXTURE_2D);*/
-	
+#endif
 	/* k vykresleni pouzivame Vertex Arrays */
 	glDrawArrays (GL_TRIANGLES, 0, t->gl_buf_len);
 	
 	glDisableClientState (GL_VERTEX_ARRAY);
 	glDisableClientState(GL_COLOR_ARRAY);
 	glDisableClientState (GL_TEXTURE_COORD_ARRAY);
-	
+
 	glPopMatrix ();
 }
 
@@ -464,7 +465,7 @@ void gl_render ()
 {
 	glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glLoadIdentity ();
-	
+
 	/* Vykreslovani HUD/textu */
 	char sfps[32];
 	sprintf (sfps, "FPS: %.0f", 1.0f/(fps_dtick/1000.0f));
@@ -487,14 +488,11 @@ void gl_render ()
 	/* Vykreslovani terenu */
 	glTranslatef (c->pos_x+TERRAIN_DIM/2, c->pos_z, c->pos_y+TERRAIN_DIM/2);
 	
-	terrain_t *t;
+	glBindTexture (GL_TEXTURE_2D, tex_get (0));
 	
-	for (t = terrain_list.next; t != &terrain_list; t = t->next) {
+	terrain_t *t;	
+	for (t = terrain_list.next; t != &terrain_list; t = t->next)
 		gl_render_terrain (t, c);
-		//gl_render_terrain (terrain_list.next, c);
-			
-		//gl_render_octree_mesh (t, c, (octree_t *) t->root);
-	}
 	
 	/* Vykreslovani vody */
 	glTranslatef (-c->pos_x-TERRAIN_DIM/2, 0, -c->pos_y-TERRAIN_DIM/2);

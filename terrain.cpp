@@ -24,7 +24,8 @@
 #include "terrain.h"
 
 terrain_t terrain_list;
-static voxel_t voxel_null = { .value = 0 };
+
+static voxel_t voxel_null = { 0 };
 
 /* jednoduche matematicke ukony */
 static int fastfloor (const float x) 
@@ -185,7 +186,7 @@ static bool terrain_gen (terrain_t *t)
 					voxel_t *v = terrain_voxel_get (t, x, y, z);
 					
 					/* urcuje kopcovitost terenu, nesmime prekrocit TERRAIN_DIM na vysku */
-					if (z < h*30.0f)
+					if (z < h*TERRAIN_HEIGHT_FACTOR)
 						v->value = 1;
 					else
 						v->value = 0;

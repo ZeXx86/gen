@@ -21,20 +21,6 @@ bool init ()
 		cerr << "Unable to initialize SDL: " << SDL_GetError () << endl;
 		return false;
 	}
-	//SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-#ifdef ANDROID
-	SDL_GL_SetAttribute (SDL_GL_BUFFER_SIZE, 16);
-	SDL_GL_SetAttribute (SDL_GL_DEPTH_SIZE, 16);
-#else
-	SDL_GL_SetAttribute (SDL_GL_BUFFER_SIZE, 24);
-	SDL_GL_SetAttribute (SDL_GL_DEPTH_SIZE, 24);
-#endif
-
-#ifdef FSAA
-	SDL_GL_SetAttribute (SDL_GL_MULTISAMPLEBUFFERS, 1);
-	SDL_GL_SetAttribute (SDL_GL_MULTISAMPLESAMPLES, FSAA);
-#endif	
-	
 	// Vytvori okno s definovanymi vlastnostmi
 	g_window = SDL_CreateWindow (WIN_TITLE, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
 						WIN_WIDTH, WIN_HEIGHT, WIN_FLAGS);
@@ -47,16 +33,19 @@ bool init ()
 	// Vytvorime SDL GL Context
   	SDL_GLContext glcontext = SDL_GL_CreateContext (g_window);
 	
-	gl_resize (WIN_WIDTH, WIN_HEIGHT);// Nastavi perspektivu
-
+	//SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 #ifndef ANDROID
-	SDL_ShowCursor (SDL_DISABLE);
-	SDL_SetWindowGrab (g_window, SDL_TRUE);
-	SDL_SetRelativeMouseMode (SDL_TRUE);
+	SDL_GL_SetAttribute (SDL_GL_BUFFER_SIZE, 24);
+	SDL_GL_SetAttribute (SDL_GL_DEPTH_SIZE, 24);
 #endif
+
+#ifdef FSAA
+	SDL_GL_SetAttribute (SDL_GL_MULTISAMPLEBUFFERS, 1);
+	SDL_GL_SetAttribute (SDL_GL_MULTISAMPLESAMPLES, FSAA);
+#endif	
+	
 	// VSync
 	//SDL_GL_SetSwapInterval (1);
-	
 	if (!terrain_init ())	// Inicializace terenu
 		return false;
 
@@ -65,19 +54,28 @@ bool init ()
 	
 	if (!font_init ())
 		return false;	// Inicializace fontu
-		
+
 	if (!gl_water_init ())
 		return false;
-	
+
 	if (!gl_init ())	// Inicializace OpenGL
 		return false;
-	
+
 	if (!tex_init ())	// Inicializace textur
 		return false;
-	
+
 	if (!logic_init ())
 		return false;
 
+	gl_resize (WIN_WIDTH, WIN_HEIGHT);// Nastavi perspektivu
+	//SDL_WM_SetCaption (WIN_TITLE, NULL);// Titulek okna
+	//gl_resize (WIN_WIDTH, WIN_HEIGHT);// Nastavi perspektivu
+
+#ifndef ANDROID
+	SDL_ShowCursor (SDL_DISABLE);
+	SDL_SetWindowGrab (g_window, SDL_TRUE);
+	SDL_SetRelativeMouseMode (SDL_TRUE);
+#endif
 	return true;
 }
 
@@ -92,19 +90,18 @@ void deinit ()
 	SDL_Quit ();
 }
 
-int main (int argc, char *argv[])
+int SDL_main (int argc, char *argv[])
 {
 	if (!init ())
 		return -1;
 
 	bool f = false;
-	
 	while (!f) {
 		f = !event_handler (); 	// Osetri udalosti
 
 		gl_render ();		// Rendering
 	}
-	
+
 	deinit ();
 
 	return 0;

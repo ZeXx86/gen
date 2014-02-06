@@ -19,11 +19,12 @@
  */
 
 #include "font.h"
-
+#ifndef ANDROID
 static TTF_Font *font;
-
+#endif
 void font_render (const double &X, const double &Y, const char *text)
 {
+#ifndef ANDROID
 	/* vzdalenost od obrazovky */
 	const double Z = 0.5f;
 	
@@ -61,16 +62,18 @@ void font_render (const double &X, const double &Y, const char *text)
 	/*Clean up.*/
 	glDeleteTextures(1, &Texture);
 	SDL_FreeSurface(msg);
+#endif
 } 
 
 bool font_init ()
 {
+#ifndef ANDROID
 	TTF_Init ();
 	
 	font = TTF_OpenFont ("data/DejaVuSans.ttf", 12);
 
 	if (!font)
 		return false;
-
+#endif
 	return true;
 }

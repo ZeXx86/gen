@@ -33,19 +33,32 @@
 # define WIN_HEIGHT 1024
 # define WIN_BPP 0
 # define FSAA 1
-#else		/* nastaveni zobrazeni pro Android */
+
+
+# define LOGI printf
+# define SDL_main main
+#endif
+
+#ifdef ANDROID /* nastaveni zobrazeni pro Android */
 # define WIN_FLAGS SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE
 # define WIN_WIDTH 480
 # define WIN_HEIGHT 800
 # define WIN_BPP 0
 # define FSAA 0
+
+# include <jni.h>
+# include <android/log.h>
+# define  LOG_TAG    "Generator"
+# define  LOGI(...)  __android_log_print(ANDROID_LOG_INFO,LOG_TAG,__VA_ARGS__)
+#endif
+
+#ifdef ANDROID
+# define PATH_DATA	"/sdcard/gen/data/"
+#else
+# define PATH_DATA	"./data/"
 #endif
 
 #define WIN_TITLE "OpenGL/Voxel Terrain Generator"
-
-#ifndef __WIN32__
-# define CALL_SETVIDEOMODE_WHEN_RESIZING
-#endif
 
 using namespace std;
 

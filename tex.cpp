@@ -6,12 +6,12 @@ static GLuint *tex_list;
 
 static SDL_Surface *LoadBitmap (const char *filename)// Funkce pro načteni bitmapy
 {
-	unsigned char *rowhi, *rowlo;// Ukazatele na prohazováni řádků
-	unsigned char *tmpbuf, tmpch;// Dočasná paměť
-	int i, j;// Řídící proměnné pro cykly
-	SDL_Surface *image;// Načítaný obrázek
+	unsigned char *rowhi, *rowlo;	// Ukazatele na prohazováni řádků
+	unsigned char *tmpbuf, tmpch;	// Dočasná paměť
+	int i, j;			// Řídící proměnné pro cykly
+	SDL_Surface *image;		// Načítaný obrázek
 
-	image = IMG_Load (filename);// Načtení dat obrázku
+	image = IMG_Load (filename);	// Načtení dat obrázku
 
 	if (image == NULL) {
 		fprintf (stderr, "Nepodarilo se nacist %s: %s\n", filename, SDL_GetError());
@@ -137,12 +137,22 @@ static GLuint tex_create_alpha (const char *file, const char *file2)
 	glGenTextures (1, &texture);
 	
 	glBindTexture (GL_TEXTURE_2D, texture);
-	gluBuild2DMipmaps (GL_TEXTURE_2D, GL_RGBA, 256, 256, GL_RGBA, GL_UNSIGNED_BYTE, total_texture);
+#ifdef ANDROID
+	glTexImage2D (GL_TEXTURE_2D, 0, 3, surface->w, surface->h, 0, GL_RGB, GL_UNSIGNED_BYTE, surface->pixels);
 	
+	glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+#else
 	glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
 	glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+	
+	gluBuild2DMipmaps (GL_TEXTURE_2D, GL_RGBA, 256, 256, GL_RGBA, GL_UNSIGNED_BYTE, total_texture);
+#endif
+	
+	
+	
 	//glEnable (GL_TEXTURE_GEN_S);
 	//glEnable (GL_TEXTURE_GEN_T);
 	//glTexGeni (GL_S, GL_TEXTURE_GEN_MODE, GL_SPHERE_MAP);
@@ -179,18 +189,18 @@ bool tex_init ()
 {
 	tex_cnt = 0;
 	tex_list = 0;
-
-	tex_create ("./data/grass.jpg");
 	
-	tex_create ("./data/skybox/negz.jpg");
-	tex_create ("./data/skybox/posx.jpg");
-	tex_create ("./data/skybox/posz.jpg");
-	tex_create ("./data/skybox/negx.jpg");
-	tex_create ("./data/skybox/posy.jpg");
-	tex_create ("./data/skybox/negy.jpg");
+#ifndef ANDROID
+	tex_create (PATH_DATA "grass.jpg");
+	tex_create (PATH_DATA "skybox/negz.jpg");
+	tex_create (PATH_DATA "skybox/posx.jpg");
+	tex_create (PATH_DATA "skybox/posz.jpg");
+	tex_create (PATH_DATA "skybox/negx.jpg");
+	tex_create (PATH_DATA "skybox/posy.jpg");
+	tex_create (PATH_DATA "skybox/negy.jpg");
 	
-	tex_create_alpha ("./data/water.jpg", "./data/alpha.jpg");
-
+	tex_create_alpha (PATH_DATA "water.jpg", PATH_DATA "alpha.jpg");
+#endif
 	
 	//tex_create ("./data/snow.jpg");
 	//tex_create ("./data/oct20clava.jpg");

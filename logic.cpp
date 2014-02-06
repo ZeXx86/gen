@@ -60,6 +60,9 @@ void logic_motion (camera_t *c)
 	
 	float speed = 0;
 
+#ifdef ANDROID
+	speed = m->abs_y < 13000 ? 0.5f : (m->abs_y > 20000 ? -0.5f : 0);
+#else
 	if (kbd_key_pressed (SDLK_a))
 		c->rot_dx -= 0.5f;
 	if (kbd_key_pressed (SDLK_d))
@@ -68,7 +71,7 @@ void logic_motion (camera_t *c)
 		speed = 1;
 	if (kbd_key_pressed (SDLK_s))
 		speed = -1;
-	
+#endif
 	/* vyhlazovaci algoritmus rotace */
 	c->rot_x += 0.02f * (c->rot_dx - c->rot_x);
 	c->rot_y += 0.02f * (c->rot_dy - c->rot_y);
@@ -222,7 +225,7 @@ bool logic_init ()
 		cerr << "Unable to create thread: " << SDL_GetError () << endl;
 		return false;
 	}
-	
+
 	if (!SDL_CreateThread (logic_thread_mouse, NULL, NULL)) {
 		cerr << "Unable to create thread: " << SDL_GetError () << endl;
 		return false;

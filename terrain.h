@@ -26,9 +26,15 @@
 #define TERRAIN_VOXEL_TYPE	float
 #define TERRAIN_VOXEL_DIM	2.0f
 
-#define TERRAIN_DIM		32
-#define TERRAIN_HEIGHT_FACTOR	20
-#define TERRAIN_GEN_FACTOR	1/3.0f
+#ifndef ANDROID
+# define TERRAIN_DIM		32
+# define TERRAIN_HEIGHT_FACTOR	30
+# define TERRAIN_GEN_FACTOR	1/3.0f
+#else
+# define TERRAIN_DIM		16
+# define TERRAIN_HEIGHT_FACTOR	15
+# define TERRAIN_GEN_FACTOR	1/3.0f
+#endif
 
 typedef struct {
 	TERRAIN_VOXEL_TYPE value;

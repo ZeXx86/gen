@@ -21,8 +21,13 @@
 #ifndef __tex_h__
 #define __tex_h__
 
-#include <SDL/SDL_opengl.h>
-#include <SDL/SDL_image.h>
+# include <SDL2/SDL_image.h>
+#ifdef ANDROID
+# include <SDL2/SDL_opengles.h>
+#else
+# include <SDL2/SDL_opengl.h>
+# include <GL/glu.h>
+#endif
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
