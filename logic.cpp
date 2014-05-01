@@ -26,8 +26,9 @@
 #include "camera.h"
 #include "terrain.h"
 
-unsigned char kdb_pressed = 0;
-unsigned char mouse_state = 0;
+static unsigned char kdb_pressed = 0;
+static unsigned char mouse_state = 0;
+static unsigned long tick_last;
 
 bool logic_collision (camera_t *p, float x, float y)
 {
@@ -37,6 +38,9 @@ bool logic_collision (camera_t *p, float x, float y)
 
 void logic_motion (camera_t *c)
 {
+	unsigned long tick_diff = SDL_GetTicks () - tick_last;
+	tick_last = SDL_GetTicks ();
+	
 	/* MOUSE MOTION */
 	mouse_t *m = mouse_get ();
 	
@@ -64,17 +68,17 @@ void logic_motion (camera_t *c)
 	speed = m->abs_y < 13000 ? 0.5f : (m->abs_y > 20000 ? -0.5f : 0);
 #else
 	if (kbd_key_pressed (SDLK_a))
-		c->rot_dx -= 0.5f;
+		c->rot_dx -= (float) tick_diff * 0.4f;
 	if (kbd_key_pressed (SDLK_d))
-		c->rot_dx += 0.5f;
+		c->rot_dx += (float) tick_diff * 0.4f;
 	if (kbd_key_pressed (SDLK_w))
-		speed = 1;
+		speed = (float) tick_diff * 0.6f;
 	if (kbd_key_pressed (SDLK_s))
-		speed = -1;
+		speed = (float) tick_diff * -0.6f;
 #endif
 	/* vyhlazovaci algoritmus rotace */
-	c->rot_x += 0.02f * (c->rot_dx - c->rot_x);
-	c->rot_y += 0.02f * (c->rot_dy - c->rot_y);
+	c->rot_x += (float) tick_diff * 0.02f * (c->rot_dx - c->rot_x);
+	c->rot_y += (float) tick_diff * 0.02f * (c->rot_dy - c->rot_y);
 
 	//Vector v (c->rot_x/180-1, c->rot_y/90, 0);
 	//v.Normalize ();
@@ -82,7 +86,7 @@ void logic_motion (camera_t *c)
 	//printf ("v: %f %f\n", v.GetX(), v.GetY());
 	
 	/* DEPRECATED - specialni klavesy */
-	if (!kdb_pressed) {
+	/*if (!kdb_pressed) {
 		if (kbd_key_pressed (SDLK_q)) {
 			if (c->view_dist != 2)
 				c->view_dist /= 2;
@@ -92,17 +96,17 @@ void logic_motion (camera_t *c)
 			kdb_pressed = 255;
 		}
 	} else
-		kdb_pressed --;
+		kdb_pressed --;*/
 	
 	
 	/* pohyb kamery v prostoru */
-	c->pos_x += sinf (M_PI/180 * -c->rot_x) * cosf (M_PI/180 * c->rot_y) * (speed * CAMERA_SPEED);
-	c->pos_y += cosf (M_PI/180 * -c->rot_x) * cosf (M_PI/180 * c->rot_y) * (speed * CAMERA_SPEED);	
-	c->pos_z += sinf (M_PI/180 * c->rot_y) * (speed * CAMERA_SPEED);
+	c->pos[0] += sinf (M_PI/180 * -c->rot_x) * cosf (M_PI/180 * c->rot_y) * (speed * CAMERA_SPEED);
+	c->pos[2] += cosf (M_PI/180 * -c->rot_x) * cosf (M_PI/180 * c->rot_y) * (speed * CAMERA_SPEED);	
+	c->pos[1] += sinf (M_PI/180 * c->rot_y) * (speed * CAMERA_SPEED);
 
 	/* omezeni vstupu do vody */
-	if (c->pos_z > -3)
-		c->pos_z = -3;
+	if (c->pos[1] > -3)
+		c->pos[1] = -3;
 	
 	/* zmena stavu kamery na zaklade stavu mysi */
 	if (m->state && !c->state) {
@@ -135,7 +139,7 @@ static float contact (float x, float y, float z, float x2, float y2, float z2)
 
 int login_thread_tadd (void *unused)
 {	
-	int size_v = TERRAIN_DIM*7;
+	int size_v = TERRAIN_DIM*TERRAIN_AD_FACTOR;
 	
 	camera_t *c = camera_get ();
 
@@ -144,17 +148,27 @@ int login_thread_tadd (void *unused)
 			for (int x = -size_v; x < size_v; x ++) {
 				int d = TERRAIN_DIM;
 					
-				int cx = -((int) ((c->pos_x) + x) / d) * d;
-				int cy = -((int) ((c->pos_y) + y) / d) * d;
+				int cx = -((int) ((c->pos[0]) + x) / d) * d;
+				int cy = -((int) ((c->pos[2]) + y) / d) * d;
 		
 				//printf ("%d %d\n", cx, cy);
-				//int cz = -((int) (c->pos_z / 2) / d) * d;
+				//int cz = -((int) (c->pos[2] / 2) / d) * d;
 					
-				if (contact (-c->pos_x, -c->pos_y, 0, cx, cy, 0) <= size_v) {
+				if (contact (-c->pos[0], -c->pos[2], 0, cx, cy, 0) <= size_v) {
 					terrain_add (cx, cy, 0);
 					terrain_add (cx, cy, TERRAIN_DIM);
 				}
 			}
+		}
+		
+		if (c->state & CAMERA_STATE_LMOUSECLICK) {
+			terrain_regen (c, -1);
+					
+			c->state &= ~CAMERA_STATE_LMOUSECLICK;
+		} else if (c->state & CAMERA_STATE_RMOUSECLICK) {
+			terrain_regen (c, 1);
+					
+			c->state &= ~CAMERA_STATE_RMOUSECLICK;
 		}
 			
 		SDL_Delay (1);
@@ -165,48 +179,24 @@ int login_thread_tadd (void *unused)
 
 int logic_thread_tdel (void *unused)
 {	
-	int size_v = TERRAIN_DIM*8;
+	int size_v = TERRAIN_DIM*(TERRAIN_AD_FACTOR+1);
 	
 	camera_t *c = camera_get ();
 	
 	while (1) {
 		terrain_t *t;
-		
-		if (SDL_TryLockMutex (gl_mutex) == 0) {
-			for (t = terrain_list.next; t != &terrain_list; t = t->next) {
-				if (contact (-c->pos_x, -c->pos_y, 0, t->origin_x, t->origin_y, 0) > size_v) {
-					if (t->gl_buf_len) {
-						terrain_del (t);
-					}
-				}
-			}
 
-			SDL_UnlockMutex (gl_mutex);
+		for (t = terrain_list.next; t != &terrain_list; t = t->next) {
+			if (contact (-c->pos[0], -c->pos[2], 0, t->origin_x, t->origin_y, 0) > size_v) {
+				if (t->gl_buf_len)
+					terrain_free (t);
+			}
 		}
-		
+
 		SDL_Delay (1);
 	}
 	
 	return 0;
-}
-
-int logic_thread_mouse (void *unused)
-{
-	camera_t *c = camera_get ();
-	
-	while (1) {
-		if (c->state & CAMERA_STATE_LMOUSECLICK) {
-			terrain_regen (c, -1);
-					
-			c->state &= ~CAMERA_STATE_LMOUSECLICK;
-		} else if (c->state & CAMERA_STATE_RMOUSECLICK) {
-			terrain_regen (c, 1);
-					
-			c->state &= ~CAMERA_STATE_RMOUSECLICK;
-		}
-		
-		SDL_Delay (10);
-	}
 }
 
 bool logic_init ()
@@ -222,11 +212,6 @@ bool logic_init ()
 	}
 
 	if (!SDL_CreateThread (logic_thread_tdel, NULL, NULL)) {
-		cerr << "Unable to create thread: " << SDL_GetError () << endl;
-		return false;
-	}
-
-	if (!SDL_CreateThread (logic_thread_mouse, NULL, NULL)) {
 		cerr << "Unable to create thread: " << SDL_GetError () << endl;
 		return false;
 	}

@@ -177,6 +177,60 @@ static GLuint tex_create_alpha (const char *file, const char *file2)
 }
 
 
+// Funkce pro konverzi bitmapy do textury
+static GLuint tex_create_skybox ()
+{
+	SDL_Surface *xpos = IMG_Load (PATH_DATA "skybox/posx.jpg");
+	SDL_Surface *xneg = IMG_Load (PATH_DATA "skybox/negx.jpg");
+	SDL_Surface *ypos = IMG_Load (PATH_DATA "skybox/posy.jpg");
+	SDL_Surface *yneg = IMG_Load (PATH_DATA "skybox/negy.jpg");
+	SDL_Surface *zpos = IMG_Load (PATH_DATA "skybox/posz.jpg");
+	SDL_Surface *zneg = IMG_Load (PATH_DATA "skybox/negz.jpg");    
+	
+	if (!xpos || !xneg || !ypos || !yneg || !zpos || !zneg)
+		return 0;
+
+	glEnable (GL_TEXTURE_CUBE_MAP);
+	
+	GLuint texture;
+	glGenTextures (1, &texture);
+	glBindTexture (GL_TEXTURE_CUBE_MAP, texture);
+
+	glTexParameteri (GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri (GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR); 
+	glTexParameteri (GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri (GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri (GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+	glTexImage2D (GL_TEXTURE_CUBE_MAP_POSITIVE_X, 0, GL_RGB, xpos->w, xpos->h, 0, GL_RGB, GL_UNSIGNED_BYTE, xpos->pixels); 
+	glTexImage2D (GL_TEXTURE_CUBE_MAP_NEGATIVE_X, 0, GL_RGB, xneg->w, xneg->h, 0, GL_RGB, GL_UNSIGNED_BYTE, xneg->pixels); 
+	glTexImage2D (GL_TEXTURE_CUBE_MAP_POSITIVE_Y, 0, GL_RGB, ypos->w, ypos->h, 0, GL_RGB, GL_UNSIGNED_BYTE, ypos->pixels); 
+	glTexImage2D (GL_TEXTURE_CUBE_MAP_NEGATIVE_Y, 0, GL_RGB, yneg->w, yneg->h, 0, GL_RGB, GL_UNSIGNED_BYTE, yneg->pixels); 
+	glTexImage2D (GL_TEXTURE_CUBE_MAP_POSITIVE_Z, 0, GL_RGB, zpos->w, zpos->h, 0, GL_RGB, GL_UNSIGNED_BYTE, zpos->pixels); 
+	glTexImage2D (GL_TEXTURE_CUBE_MAP_NEGATIVE_Z, 0, GL_RGB, zneg->w, zneg->h, 0, GL_RGB, GL_UNSIGNED_BYTE, zneg->pixels); 
+	
+   	// uklid - smazani SDL_Surface
+   	SDL_FreeSurface (xpos);
+   	SDL_FreeSurface (xneg);
+   	SDL_FreeSurface (ypos);
+	SDL_FreeSurface (yneg);
+	SDL_FreeSurface (zpos);
+	SDL_FreeSurface (zneg);
+	
+	GLuint *list = (GLuint *) realloc (tex_list, sizeof (GLuint) * (tex_cnt+1));
+	
+	if (list) {
+		tex_list = list;
+
+		tex_list[tex_cnt] = texture;
+
+		tex_cnt ++;
+	}
+
+   	return texture;
+}
+
+
 GLuint tex_get (unsigned id)
 {
 	if (id >= tex_cnt)
@@ -191,15 +245,20 @@ bool tex_init ()
 	tex_list = 0;
 	
 #ifndef ANDROID
-	tex_create (PATH_DATA "grass.jpg");
-	tex_create (PATH_DATA "skybox/negz.jpg");
+	/*tex_create (PATH_DATA "skybox/negz.jpg");
 	tex_create (PATH_DATA "skybox/posx.jpg");
 	tex_create (PATH_DATA "skybox/posz.jpg");
 	tex_create (PATH_DATA "skybox/negx.jpg");
 	tex_create (PATH_DATA "skybox/posy.jpg");
-	tex_create (PATH_DATA "skybox/negy.jpg");
+	tex_create (PATH_DATA "skybox/negy.jpg");*/
+	tex_create_skybox ();
 	
 	tex_create_alpha (PATH_DATA "water.jpg", PATH_DATA "alpha.jpg");
+	
+	tex_create (PATH_DATA "grass.jpg");
+	tex_create (PATH_DATA "rock.jpg");
+	tex_create (PATH_DATA "snow.jpg");
+	tex_create (PATH_DATA "water.jpg");
 #endif
 	
 	//tex_create ("./data/snow.jpg");

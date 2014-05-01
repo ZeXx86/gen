@@ -19,10 +19,12 @@
  */
 
 #include "gl.h"
+#include "vbo.h"
 #include "gen.h"
 #include "tex.h"
 #include "font.h"
 #include "water.h"
+#include "shader.h"
 #include "octree.h"
 #include "camera.h"
 #include "frustum.h"
@@ -32,10 +34,13 @@
 static float fps_stick, fps_dtick;
 SDL_mutex *gl_mutex;
 
-GLuint filter;                      			// Which Filter To Use
-GLuint fogMode[] = { GL_EXP, GL_EXP2, GL_LINEAR };   	// Storage For Three Types Of Fog
-GLuint fogfilter = 0;                   			// Which Fog To Use
-GLfloat fogColor[4] = {0.5f, 0.5f, 0.5f, 1.0f};      	// Fog Color
+static GLuint shader[2];
+
+static light_t light[1];
+static material_t mat[1];
+
+void gl_init_skybox ();
+static unsigned vbo_skybox_id;
 
 #define RENDER_TERRAIN	1
 
@@ -56,88 +61,63 @@ bool gl_init ()
 	glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glEnable (GL_BLEND);
 	glDisable (GL_ALPHA_TEST);
-	
-	glBlendColor(0.5f, 0.5f, 0.5f, 0.5f);
-	
-	glFogi (GL_FOG_MODE, fogMode[1]);	// Fog Mode
-	glFogfv (GL_FOG_COLOR, fogColor);            	// Set Fog Color
-	glFogf (GL_FOG_DENSITY, 0.008f);              	// How Dense Will The Fog Be
-	glHint (GL_FOG_HINT, GL_DONT_CARE);          	// Fog Hint Value
-	glFogf (GL_FOG_START, 5.0f);             	// Fog Start Depth
-	glFogf (GL_FOG_END, 10.0f);               	// Fog End Depth
-	glEnable (GL_FOG);                   		// Enables GL_FOG
 #endif
+	/* nacteni a kompilace shaderu */
+	shader[0] = shader_init ("data/shader_ter");
+	shader[1] = shader_init ("data/shader_skybox");
 	
-	GLfloat mat_ambient[] = { 0.5, 1.0, 0.5, 1.0 };
-	GLfloat mat_diffuse[] = { 0.5, 0.5, 0.5, 1.0 };
-	GLfloat mat_specular[] = { 0.5, 0.5, 0.5, 1.0 };
-	GLfloat mat_shininess[] = { 120.0 };
+	/* definice osvetleni */
+	light[0].ambient[0] = light[0].ambient[1] = light[0].ambient[2] = 0.2f;
+	light[0].ambient[3] = 1.0f;
+	light[0].diffuse[0] = light[0].diffuse[1] = light[0].diffuse[2] = 0.3f;
+	light[0].diffuse[3] = 1.0f;
+	light[0].specular[0] = light[0].specular[1] = light[0].specular[2] = 0.6f;
+	light[0].specular[3] = 1.0f;
+	light[0].position[0] = 0.0f;
+	light[0].position[1] = 0.0f;
+ 	light[0].position[2] = 100.0f;
 	
-	glMaterialfv(GL_FRONT, GL_AMBIENT, mat_ambient);
-	glMaterialfv(GL_FRONT, GL_DIFFUSE, mat_diffuse);
-	glMaterialfv(GL_FRONT, GL_SPECULAR, mat_specular);
-	glMaterialfv(GL_FRONT, GL_SHININESS, mat_shininess);
-	
+	light[0].position[3] = 0.0f; 	
+	light[0].name = strdup ("light");
 
-	//glEnable(GL_LIGHTING);
-	//glEnable(GL_LIGHT0);
+	/* definice materialu */
+	mat[0].ambient[0] = mat[0].ambient[1] = mat[0].ambient[2] = 1.4f;
+	mat[0].ambient[3] = 1.0f;
+	mat[0].diffuse[0] = mat[0].diffuse[1] = mat[0].diffuse[2] = 0.1f;
+	mat[0].diffuse[3] = 1.0f;
+	mat[0].specular[0] = mat[0].specular[1] = mat[0].specular[2] = mat[0].specular[3] = 0.15f;
+	mat[0].name = strdup ("material");
 	
-	//glEnable (GL_CULL_FACE);
-	//glCullFace (GL_FRONT);
-	
-	/*glEnable (GL_LIGHTING);
-
-	//glColorMaterial ( GL_FRONT_AND_BACK, GL_EMISSION ) ;
-	glEnable ( GL_COLOR_MATERIAL ) ;
-	
-	GLfloat specular[] = {0.8, 0.8, 0.8, 1.0};
-	glLightfv(GL_LIGHT0, GL_SPECULAR, specular);
-	
-	GLfloat ambient[] = {0.8, 0.8, 0.8};
-	glLightfv(GL_LIGHT0, GL_AMBIENT, ambient);
-	
-	//GLfloat position[] = { -1.5f, 1.0f, -4.0f, 1.0f };
-	//glLightfv(GL_LIGHT0, GL_POSITION, position);
-	
-	glEnable(GL_LIGHT0);*/
-
 	gl_mutex = SDL_CreateMutex ();
 	if (!gl_mutex) {
 		fprintf (stderr, "Couldn't create mutex\n");
 		return false;
 	}
 	
+	gl_init_skybox ();
+
 	return true;
 }
 
-#ifdef ANDROID
-static void gluPerspective (GLfloat fovy, GLfloat aspect, GLfloat z_near, GLfloat z_far)
+void gl_init_skybox ()
 {
-	GLfloat xmin, xmax, ymin, ymax;
+	const GLfloat buf[] = { 
+		//x, y, z, u ,v
+		-1.0f, -1.0f, 0.0f,
+		1.0f, -1.0f, 0.0f,
+		1.0f, 1.0f, 0.0f,
 
-	ymax = z_near * (GLfloat) tan (fovy * M_PI / 360);
-	ymin = -ymax;
-	xmin = ymin * aspect;
-	xmax = ymax * aspect;
-
-	glFrustumx ((GLfixed) (xmin * 65536), (GLfixed) (xmax * 65536),
-			(GLfixed) (ymin * 65536), (GLfixed) (ymax * 65536),
-			(GLfixed) (z_near * 65536), (GLfixed) (z_far * 65536));
+		1.0f, 1.0f, 0.0f,
+		-1.0f, 1.0f, 0.0f,
+		-1.0f, -1.0f, 0.0f,
+	};
+	
+	vbo_skybox_id = vbo_alloc ((void *) buf, sizeof (buf));
 }
-#endif
+
 void gl_resize (int width, int height)
 {
-	if (height == 0)
-		height = 1;
-
-	glViewport (0, 0, width, height);
-
-	glMatrixMode (GL_PROJECTION);
-	glLoadIdentity ();
-
-	gluPerspective (60.0, (GLdouble) width / (GLdouble) height, NEAR_PLANE, FAR_PLANE);
-
-	glMatrixMode (GL_MODELVIEW);
+	camera_init (0, 0, width, height);
 }
 
 float gl_fps_get ()
@@ -168,6 +148,8 @@ bool gl_prepare_terrain (terrain_t *t)
 	for (int z = 0; z < t->dim_z; z ++) {
 		gridcell_t grid;
 		triangle_t trg[5];
+		
+		float voxel_val = 0;
 
 		for (int i = 0; i < 8; i ++) {
 			int x_i = (((i+1)/2) % 2);
@@ -181,6 +163,8 @@ bool gl_prepare_terrain (terrain_t *t)
 			voxel_t *v_c = terrain_voxel_get (t, x+x_i, z+z_i, y+y_i);
 			
 			grid.val[i] = v_c->value > 0.0f ? -1 : 0;
+			
+			voxel_val += v_c->value / 8.0f;
 		}
 
 		int n = polygonise_grid (grid, 0.0f, &trg[0]);
@@ -188,26 +172,11 @@ bool gl_prepare_terrain (terrain_t *t)
 		if (!n)
 			continue;
 
-		trg_buf = (float *) realloc ((float *) trg_buf, (trg_num+n) * sizeof (float) * 9);
+		trg_buf = (float *) realloc ((float *) trg_buf, (trg_num+n) * sizeof (float) * (9 + 9 + 9));
 			
 		if (trg_buf == NULL)
 			return false;
-		
-		col_buf = (float *) realloc ((float *) col_buf, (trg_num+n) * sizeof (float) * 12);
-			
-		if (col_buf == NULL)
-			return false;
-		
-		tex_buf = (float *) realloc ((float *) tex_buf, (trg_num+n) * sizeof (float) * 6);
-			
-		if (tex_buf == NULL)
-			return false;
-
-		/*tex2_buf = (float *) realloc ((float *) tex2_buf, (trg_num+n) * sizeof (float) * 6);
-			
-		if (tex2_buf == NULL)
-			return false;*/
-		
+	
 		/* pocet trojuhelniku k vykresleni */
 		for (int i = 0; i < n; i ++) {
 			vector_t n = polygonise_trg_norm (trg[i]);
@@ -216,7 +185,7 @@ bool gl_prepare_terrain (terrain_t *t)
 			if (t->origin_z == 0)
 				h = 0;
 			
-			float color = 0;
+			//float color = 0;
 			
 			/*bool snow = false;
 			
@@ -224,74 +193,78 @@ bool gl_prepare_terrain (terrain_t *t)
 				(rand () % 20) != 0 ? snow = false : snow = true;
 			}*/
 			
-			color = (190-h) / 255.0f;
+			//color = (190-h) / 255.0f;
 			
 			//if (snow)
 			//	color = 255.0f;
 			
-			int idx = (trg_num+i) * 9;
+			/*glm::vec3 v1 = glm::vec3 (trg[i].p[0].x, trg[i].p[0].y, trg[i].p[0].z);
+			glm::vec3 v2 = glm::vec3 (trg[i].p[1].x, trg[i].p[1].y, trg[i].p[1].z);
+			glm::vec3 v3 = glm::vec3 (trg[i].p[2].x, trg[i].p[2].y, trg[i].p[2].z);
+			
+			normal = glm::normalize (glm::cross (v3 - v1, v2 - v1));*/
+			
+			int idx = (trg_num+i) * 27;
 			
 			trg_buf[idx+0] = trg[i].p[0].x;
 			trg_buf[idx+1] = trg[i].p[0].y;
 			trg_buf[idx+2] = trg[i].p[0].z;
 			
-			trg_buf[idx+3] = trg[i].p[1].x;
-			trg_buf[idx+4] = trg[i].p[1].y;
-			trg_buf[idx+5] = trg[i].p[1].z;
+			trg_buf[idx+3] = n.x;
+			trg_buf[idx+4] = n.y;
+			trg_buf[idx+5] = n.z;
 			
-			trg_buf[idx+6] = trg[i].p[2].x;
-			trg_buf[idx+7] = trg[i].p[2].y;
-			trg_buf[idx+8] = trg[i].p[2].z;
+			trg_buf[idx+6] = 0;
+			trg_buf[idx+7] = 0;
 			
-			int cidx = (trg_num+i) * 12;
+			trg_buf[idx+8] = h;
 			
-			col_buf[cidx+0] = 0.0f;
-			col_buf[cidx+1] = color;
-			col_buf[cidx+2] = 0.0f;
-			col_buf[cidx+3] = 1;
+			idx += 9;
 			
-			col_buf[cidx+4] = 0.0f;
-			col_buf[cidx+5] = color;
-			col_buf[cidx+6] = 0.0f;
-			col_buf[cidx+7] = 1;
+			trg_buf[idx+0] = trg[i].p[1].x;
+			trg_buf[idx+1] = trg[i].p[1].y;
+			trg_buf[idx+2] = trg[i].p[1].z;
 			
-			col_buf[cidx+8] = 0.0f;
-			col_buf[cidx+9] = color;
-			col_buf[cidx+10] = 0.0f;
-			col_buf[cidx+11] = 1;
+			trg_buf[idx+3] = n.x;
+			trg_buf[idx+4] = n.y;
+			trg_buf[idx+5] = n.z;
 			
-			int tidx = (trg_num+i) * 6;
+			trg_buf[idx+6] = 1;
+			trg_buf[idx+7] = 1;
 			
-			tex_buf[tidx+0] = 0;
-			tex_buf[tidx+1] = 0;
-				
-			tex_buf[tidx+2] = 1;
-			tex_buf[tidx+3] = 0;
-				
-			tex_buf[tidx+4] = 1;
-			tex_buf[tidx+5] = 1;
+			trg_buf[idx+8] = h;
+			
+			idx += 9;
+			
+			trg_buf[idx+0] = trg[i].p[2].x;
+			trg_buf[idx+1] = trg[i].p[2].y;
+			trg_buf[idx+2] = trg[i].p[2].z;
+
+			trg_buf[idx+3] = n.x;
+			trg_buf[idx+4] = n.y;
+			trg_buf[idx+5] = n.z;
+							
+			trg_buf[idx+6] = 1;
+			trg_buf[idx+7] = 0;
+			
+			trg_buf[idx+8] = h;
 		}
 		
 		trg_num	+= n;
 	}
 
-	void *buf_vert = t->gl_buf_vert;
-	void *buf_col = t->gl_buf_col;
-	void *buf_tex = t->gl_buf_tex;
-	
+	void *gl_buf = t->gl_buf;
+
 	t->gl_buf_len = trg_num*3;
 	
-	t->gl_buf_vert = trg_buf;
-	t->gl_buf_col = col_buf;
-	t->gl_buf_tex = tex_buf;
-
+	t->gl_buf = trg_buf;
+	
 	if (t->gl_buf_len) {
-		free (buf_vert);
-		free (buf_col);
-		free (buf_tex);
-	}	
-	//t->gl_buf_tex2 = tex2_buf;
-	//glEndList ();
+		free (gl_buf);
+		//free (buf_col);
+		//free (buf_tex);
+	}
+
 	
 	return true;
 }
@@ -302,203 +275,163 @@ void gl_delete_terrain (terrain_t *t)
 }
 
 /* vykreslovani SkyBoxu - enviromentalni mapy */
-void gl_render_skybox ()
+void gl_render_skybox (camera_t *c)
 {
-#ifndef ANDROID
-	glPushMatrix ();
+	glDisable (GL_DEPTH_TEST);
+	
+	glBindBuffer (GL_ARRAY_BUFFER, vbo_skybox_id);
 
-	glScalef (350, 350, 350);
-	
-	/* vykreslime predni stranu krychle */
-	glBindTexture (GL_TEXTURE_2D, tex_get (1));
-	glBegin (GL_QUADS);
-		glTexCoord2f (0, 0); glVertex3f (  0.5f, -0.5f, -0.5f );
-		glTexCoord2f (1, 0); glVertex3f ( -0.5f, -0.5f, -0.5f );
-		glTexCoord2f (1, 1); glVertex3f ( -0.5f,  0.5f, -0.5f );
-		glTexCoord2f (0, 1); glVertex3f (  0.5f,  0.5f, -0.5f );
-	glEnd();
-	
-	/* vykreslime levou stranu krychle */
-	glBindTexture (GL_TEXTURE_2D, tex_get (2));
-	glBegin (GL_QUADS);
-		glTexCoord2f (0, 0); glVertex3f (  0.5f, -0.5f,  0.5f );
-		glTexCoord2f (1, 0); glVertex3f (  0.5f, -0.5f, -0.5f );
-		glTexCoord2f (1, 1); glVertex3f (  0.5f,  0.5f, -0.5f );
-		glTexCoord2f (0, 1); glVertex3f (  0.5f,  0.5f,  0.5f );
-	glEnd ();
-	
-	/* vykreslime zadni stranu krychle */
-	glBindTexture (GL_TEXTURE_2D, tex_get (3));
-	glBegin (GL_QUADS);
-		glTexCoord2f (0, 0); glVertex3f ( -0.5f, -0.5f,  0.5f );
-		glTexCoord2f (1, 0); glVertex3f (  0.5f, -0.5f,  0.5f );
-		glTexCoord2f (1, 1); glVertex3f (  0.5f,  0.5f,  0.5f );
-		glTexCoord2f (0, 1); glVertex3f ( -0.5f,  0.5f,  0.5f );
-	
-	glEnd ();
-	
-	/* vykreslime pravou stranu krychle */
-	glBindTexture (GL_TEXTURE_2D, tex_get (4));
-	glBegin (GL_QUADS);
-		glTexCoord2f (0, 0); glVertex3f ( -0.5f, -0.5f, -0.5f );
-		glTexCoord2f (1, 0); glVertex3f ( -0.5f, -0.5f,  0.5f );
-		glTexCoord2f (1, 1); glVertex3f ( -0.5f,  0.5f,  0.5f );
-		glTexCoord2f (0, 1); glVertex3f ( -0.5f,  0.5f, -0.5f );
-	glEnd ();
-	
-	/* vykreslime vrchni stranu krychle */
-	glBindTexture (GL_TEXTURE_2D, tex_get (5));
-	glBegin (GL_QUADS);
-		glTexCoord2f (0, 1); glVertex3f ( -0.5f,  0.5f, -0.5f );
-		glTexCoord2f (0, 0); glVertex3f ( -0.5f,  0.5f,  0.5f );
-		glTexCoord2f (1, 0); glVertex3f (  0.5f,  0.5f,  0.5f );
-		glTexCoord2f (1, 1); glVertex3f (  0.5f,  0.5f, -0.5f );
-	glEnd ();
-	
-	/* vykreslime spodni stranu krychle */
-	glBindTexture(GL_TEXTURE_2D, tex_get (6));
-	glBegin(GL_QUADS);
-		glTexCoord2f (0, 0); glVertex3f ( -0.5f, -0.5f, -0.5f );
-		glTexCoord2f (0, 1); glVertex3f ( -0.5f, -0.5f,  0.5f );
-		glTexCoord2f (1, 1); glVertex3f (  0.5f, -0.5f,  0.5f );
-		glTexCoord2f (1, 0); glVertex3f (  0.5f, -0.5f, -0.5f );
-	glEnd();
-	
-	glPopMatrix ();
-#endif
-}
-
-/* DEPRECATED - pravdepodobne se jiz nebude vyuzivat */
-void gl_render_octree_mesh (terrain_t *t, camera_t *c, octree_t *node)
-{
-	if (!node)
-		return;
-	
-	if (node->children)
-	for (int i = 0; i < 8; i ++) {
-		if (node->children[i])
-			gl_render_octree_mesh (t, c, node->children[i]);	
-	}
-	
-	if (node->size_x != c->view_dist)
-		return;
-	
-	glPushMatrix ();
-	glTranslatef ((t->origin_x+node->origin_x)*TERRAIN_VOXEL_DIM-1,
-		      (t->origin_z+node->origin_z)*TERRAIN_VOXEL_DIM-1,
-		      (t->origin_y+node->origin_y)*TERRAIN_VOXEL_DIM-1);
-			
-	glScalef (node->size_x*1.001f, node->size_z*1.001f, node->size_y*1.001f);
+	glUseProgram (shader[1]);
 		
-	float c_q = 255;
-#ifndef ANDROID
-	glBegin (GL_QUADS);
-		// Front Face
-		glColor4ub (0, c_q, 0, 60); glVertex3f (-1.0f, -1.0f,  1.0f);  
-		glColor4ub (0, c_q, 0, 60); glVertex3f ( 1.0f, -1.0f,  1.0f);  
-		glColor4ub (0, c_q, 0, 60); glVertex3f ( 1.0f,  1.0f,  1.0f);  
-		glColor4ub (0, c_q, 0, 60); glVertex3f (-1.0f,  1.0f,  1.0f);  
-		// Back Face
-		glColor4ub (0, c_q, 0, 60); glVertex3f (-1.0f, -1.0f, -1.0f);  
-		glColor4ub (0, c_q, 0, 60); glVertex3f (-1.0f,  1.0f, -1.0f);  
-		glColor4ub (0, c_q, 0, 60); glVertex3f ( 1.0f,  1.0f, -1.0f);  
-		glColor4ub (0, c_q, 0, 60); glVertex3f ( 1.0f, -1.0f, -1.0f);  
-		// Top Face
-		glColor4ub (0, c_q, 0, 60); glVertex3f (-1.0f,  1, -1.0f);  
-		glColor4ub (0, c_q, 0, 60); glVertex3f (-1.0f,  1,  1.0f);  
-		glColor4ub (0, c_q, 0, 60); glVertex3f ( 1.0f,  1,  1.0f);  
-		glColor4ub (0, c_q, 0, 60); glVertex3f ( 1.0f,  1, -1.0f);  
-		// Bottom Face
-		glColor4ub (0, c_q, 0, 60); glVertex3f (-1.0f, -1.0f, -1.0f);  
-		glColor4ub (0, c_q, 0, 60); glVertex3f ( 1.0f, -1.0f, -1.0f);  
-		glColor4ub (0, c_q, 0, 60); glVertex3f ( 1.0f, -1.0f,  1.0f);  
-		glColor4ub (0, c_q, 0, 60); glVertex3f (-1.0f, -1.0f,  1.0f);  
-		// Right face
-		glColor4ub (0, c_q, 0, 60); glVertex3f ( 1.0f, -1.0f, -1.0f);  
-		glColor4ub (0, c_q, 0, 60); glVertex3f ( 1.0f,  1.0f, -1.0f);  
-		glColor4ub (0, c_q, 0, 60); glVertex3f ( 1.0f,  1.0f,  1.0f);  
-		glColor4ub (0, c_q, 0, 60); glVertex3f ( 1.0f, -1.0f,  1.0f);  
-		// Left Face
-		glColor4ub (0, c_q, 0, 60); glVertex3f (-1.0f, -1.0f, -1.0f);  
-		glColor4ub (0, c_q, 0, 60); glVertex3f (-1.0f, -1.0f,  1.0f);  
-		glColor4ub (0, c_q, 0, 60); glVertex3f (-1.0f,  1.0f,  1.0f);  
-		glColor4ub (0, c_q, 0, 60); glVertex3f (-1.0f,  1.0f, -1.0f);  
-	glEnd ();
-#endif
-	glPopMatrix ();
+	glm::mat4 proj = c->projection;
+	glm::mat4 tmp = c->view;
+
+	int uniform = glGetUniformLocation (shader[1], "MVMatrix");
+	glUniformMatrix4fv (uniform, 1, GL_FALSE, (float*)&tmp[0]);
+	uniform = glGetUniformLocation (shader[1], "PMatrix");
+	glUniformMatrix4fv (uniform, 1, GL_FALSE, (float*)&proj[0]);
+	
+				
+	GLuint tex_id = glGetUniformLocation (shader[1], "tex_sampler0");
+	glUniform1i (tex_id, 0);
+
+	/* texura */
+	glActiveTexture (GL_TEXTURE0); 
+	glBindTexture (GL_TEXTURE_CUBE_MAP, tex_get (0));
+
+	glEnableVertexAttribArray (0);
+	
+	glVertexAttribPointer (0, 3, GL_FLOAT, GL_FALSE, (3 * sizeof(GLfloat)), 0);
+	
+	/* k vykresleni pouzivame Vertex Buffer Object */
+	glDrawArrays (GL_TRIANGLES, 0, 6);
+	
+	glDisableVertexAttribArray (0);
+	
+	glBindBuffer (GL_ARRAY_BUFFER, 0);
+
+	/* vypneme shader */
+	glUseProgram (0);
+	
+	glEnable (GL_DEPTH_TEST);
 }
 
 void gl_render_terrain (terrain_t *t, camera_t *c)
 {
-	if (!t->gl_buf_len)
-		return;
 //#define FRUSTUM 1
 #ifdef FRUSTUM
 	if (frustum_check (t, c) == false)
 		return;
 #endif
+	if (t->state & TERRAIN_STATE_UPDATE)
+		vbo_free (&t->vbo_id);
 	
-	glPushMatrix ();
+	if (!t->vbo_id)
+		t->vbo_id = vbo_alloc (t->gl_buf, t->gl_buf_len * sizeof (float) * 9);
+	
+	glBindBuffer (GL_ARRAY_BUFFER, t->vbo_id);
+	
+	/* Vykreslovani terenu */
+	glm::mat4 mdl_matrix;
+	
+	mdl_matrix = glm::translate (glm::vec3 (t->origin_x-TERRAIN_DIM, t->origin_z, t->origin_y-TERRAIN_DIM));
 
-	glTranslatef (t->origin_x-TERRAIN_DIM, t->origin_z, t->origin_y-TERRAIN_DIM);
-		
-	glEnableClientState (GL_VERTEX_ARRAY);
-	glVertexPointer (3, GL_FLOAT, 0, t->gl_buf_vert);
+	/* enable program and set uniform variables */
+	glUseProgram (shader[0]);
+			
+	glm::mat4 tmp = c->view * mdl_matrix;
 
-	glEnableClientState (GL_COLOR_ARRAY);
-	glColorPointer (4, GL_FLOAT, 0, t->gl_buf_col);
-#ifndef ANDROID
-	glEnableClientState (GL_TEXTURE_COORD_ARRAY);
-	glTexCoordPointer (2, GL_FLOAT, 0, t->gl_buf_tex);
-#endif
-	/* k vykresleni pouzivame Vertex Arrays */
+	int uniform = glGetUniformLocation (shader[0], "PMatrix");
+	glUniformMatrix4fv (uniform, 1, GL_FALSE, (float*)&c->projection[0]);
+	uniform = glGetUniformLocation (shader[0], "VMatrix");
+	glUniformMatrix4fv (uniform, 1, GL_FALSE, (float*)&c->view[0]);
+	uniform = glGetUniformLocation (shader[0], "MVMatrix");
+	glUniformMatrix4fv (uniform, 1, GL_FALSE, (float*)&tmp[0]);
+	uniform = glGetUniformLocation (shader[0], "NormalMatrix");
+	glUniformMatrix3fv (uniform, 1, GL_FALSE, (float*)&(glm::inverseTranspose(glm::mat3(tmp)))[0]);
+			
+	shader_getuniform_light (shader[0], &light[0]);
+	shader_getuniform_material (shader[0], &mat[0]);
+				
+	GLuint tex_id  = glGetUniformLocation (shader[0], "tex_sampler0");
+	glUniform1i (tex_id, 0);
+	tex_id  = glGetUniformLocation (shader[0], "tex_sampler1");
+	glUniform1i (tex_id, 1);
+	tex_id  = glGetUniformLocation (shader[0], "tex_sampler2");
+	glUniform1i (tex_id, 2);
+
+	/* texura */
+	glActiveTexture (GL_TEXTURE2); 
+	glBindTexture (GL_TEXTURE_2D, tex_get (4));
+	
+	glActiveTexture (GL_TEXTURE1); 
+	glBindTexture (GL_TEXTURE_2D, tex_get (3));
+			
+	glActiveTexture (GL_TEXTURE0); 
+	glBindTexture (GL_TEXTURE_2D, tex_get (2));
+
+
+	glEnableVertexAttribArray (0);
+	glEnableVertexAttribArray (1);
+	glEnableVertexAttribArray (2);
+	glEnableVertexAttribArray (3);
+	
+	glVertexAttribPointer (0, 3, GL_FLOAT, GL_FALSE, (9 * sizeof(GLfloat)), 0);
+	glVertexAttribPointer (1, 3, GL_FLOAT, GL_FALSE, (9 * sizeof(GLfloat)), (GLvoid *) (3 * sizeof(GLfloat)));
+	glVertexAttribPointer (2, 2, GL_FLOAT, GL_FALSE, (9 * sizeof(GLfloat)), (GLvoid *) (6 * sizeof(GLfloat)));
+	glVertexAttribPointer (3, 1, GL_FLOAT, GL_FALSE, (9 * sizeof(GLfloat)), (GLvoid *) (8 * sizeof(GLfloat)));
+	
+	/* k vykresleni pouzivame Vertex Buffer Object */
 	glDrawArrays (GL_TRIANGLES, 0, t->gl_buf_len);
 	
-	glDisableClientState (GL_VERTEX_ARRAY);
-	glDisableClientState(GL_COLOR_ARRAY);
-	glDisableClientState (GL_TEXTURE_COORD_ARRAY);
-
-	glPopMatrix ();
+	glDisableVertexAttribArray (0);
+	glDisableVertexAttribArray (1);
+	glDisableVertexAttribArray (2);
+	glDisableVertexAttribArray (3);
+	
+	glBindBuffer (GL_ARRAY_BUFFER, 0);
+	
+	/* vypneme shader */
+	glUseProgram (0);
 }
 
 void gl_render ()
 {
+	fps_stick = SDL_GetTicks ();
+	
 	glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glLoadIdentity ();
+	
+	camera_update ();
+	
+	/* Ziskame nasi kameru */
+	camera_t *c = camera_get ();
+	
+	/* Vykreslovani SkyBoxu */
+	gl_render_skybox (c);
+	
+	terrain_t *t;	
+	for (t = terrain_list.next; t != &terrain_list; t = t->next) {
+		if (!t->gl_buf_len) {
+			/* mazani kontextu terenu z pameti */
+			terrain_t *tmp = t->prev;
+			if (terrain_del (t))
+				t = tmp;
+			
+			continue;
+		}
+
+		gl_render_terrain (t, c);	
+	}
+
+	/* Vykreslovani vody */
+	gl_water_render ();
 
 	/* Vykreslovani HUD/textu */
 	char sfps[32];
 	sprintf (sfps, "FPS: %.0f", 1.0f/(fps_dtick/1000.0f));
-	font_render (-350, -250, sfps);
-	glLoadIdentity ();
+	font_render (0.500, -0.400, sfps);
 	
-	/* Ziskame nasi kameru */
-	camera_t *c = camera_get ();
-
-	/* scene motion */
-	glRotatef (c->rot_y, 1, 0, 0);
-	glRotatef (c->rot_x, 0, 1, 0);
-	
-	/* Vykreslovani SkyBoxu */
-	gl_render_skybox ();
-	
-	GLfloat light_position[] = { 0.0, 0.0, 1.0, 0.0 };
-	glLightfv(GL_LIGHT0, GL_POSITION, light_position);
-	
-	/* Vykreslovani terenu */
-	glTranslatef (c->pos_x+TERRAIN_DIM/2, c->pos_z, c->pos_y+TERRAIN_DIM/2);
-	
-	glBindTexture (GL_TEXTURE_2D, tex_get (0));
-	
-	terrain_t *t;	
-	for (t = terrain_list.next; t != &terrain_list; t = t->next)
-		gl_render_terrain (t, c);
-	
-	/* Vykreslovani vody */
-	glTranslatef (-c->pos_x-TERRAIN_DIM/2, 0, -c->pos_y-TERRAIN_DIM/2);
-	
-	gl_water_render ();
-
 	glFlush ();
 	
 	 /* Prohodi predni a zadni buffer */
@@ -510,7 +443,5 @@ void gl_render ()
 	/* Omezime shora FPS, protoze nam vyssi uz nic neprinese */
 	if (1000/FPS_MAX > fps_dtick)
 		SDL_Delay (1000.0f/FPS_MAX - fps_dtick);
-
-	fps_stick = SDL_GetTicks ();
 }
 

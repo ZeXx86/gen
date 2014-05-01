@@ -24,6 +24,10 @@
 #include "gen.h"
 #include "tex.h"
 #include "water.h"
+#include "shader.h"
+
+static int vbo_id;
+static int shader;
 
 static float *water_surf;
 static float *water_norm;
@@ -39,8 +43,8 @@ static float gl_water_z (const float x, const float y, const float t)
 }
 
 void gl_water_render ()
-{
-#ifndef ANDROID
+{	
+#ifdef OLD
 	glPushMatrix ();	
 	
 	unsigned int indice;
@@ -183,11 +187,7 @@ void gl_water_render ()
 	glTexGeni (GL_S, GL_TEXTURE_GEN_MODE, GL_SPHERE_MAP);
 	glTexGeni (GL_T, GL_TEXTURE_GEN_MODE, GL_SPHERE_MAP);
 
-	glBindTexture(GL_TEXTURE_2D, tex_get (7));
-	
-	//glEnable (GL_DEPTH_TEST);
-	//glEnable (GL_BLEND);
-	//glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glBindTexture (GL_TEXTURE_2D, tex_get (7));
 
 	glEnableClientState (GL_NORMAL_ARRAY);
 	glEnableClientState (GL_VERTEX_ARRAY);
@@ -196,20 +196,67 @@ void gl_water_render ()
 
 	for (int i = 0; i < WATER_RES; i ++)
 		glDrawArrays (GL_TRIANGLE_STRIP, i * length, length);
-
-	//glDisable (GL_TEXTURE_2D);
 	
 	glDisable (GL_TEXTURE_GEN_S);
 	glDisable (GL_TEXTURE_GEN_T);
 	
-	//glDisable (GL_BLEND);
-	
 	glPopMatrix ();	
 #endif
+#define WATER_SIZE	2000.0f
+	
+	camera_t *c = camera_get ();
+	
+	if (!c)
+		return;
+	
+	glBindBuffer (GL_ARRAY_BUFFER, vbo_id);
+	
+	glUseProgram (shader);
+	
+	glm::mat4 proj = c->projection;
+	glm::mat4 tmp = c->view * glm::translate (glm::vec3 (-WATER_SIZE/2-c->pos[0], 0, -WATER_SIZE/2-c->pos[2])) * glm::rotate (90.0f, glm::vec3 (1, 0, 0)) * glm::scale (glm::vec3 (WATER_SIZE, WATER_SIZE, 1.0));
+
+	int uniform = glGetUniformLocation (shader, "MVMatrix");
+	glUniformMatrix4fv (uniform, 1, GL_FALSE, (float*)&tmp[0]);
+	uniform = glGetUniformLocation (shader, "PMatrix");
+	glUniformMatrix4fv (uniform, 1, GL_FALSE, (float*)&proj[0]);
+	
+	glm::vec3 cam_pos = c->pos / WATER_SIZE;
+	uniform = glGetUniformLocation (shader, "cam_pos");
+	glUniform3fv (uniform, 1, (float*)&cam_pos[0]);
+	
+	float time_wave = SDL_GetTicks () / 1000000.0f;
+	uniform = glGetUniformLocation (shader, "time_wave");
+	glUniform1f (uniform, time_wave);
+	
+	GLuint tex_id = glGetUniformLocation (shader, "tex_sampler0");
+	glUniform1i (tex_id, 0);
+
+	/* texura */
+	glActiveTexture (GL_TEXTURE0); 
+	glBindTexture (GL_TEXTURE_2D, tex_get (5));
+
+	glEnableVertexAttribArray (0);
+	glEnableVertexAttribArray (1);
+	
+	glVertexAttribPointer (0, 3, GL_FLOAT, GL_FALSE, (5 * sizeof(GLfloat)), 0);
+	glVertexAttribPointer (1, 2, GL_FLOAT, GL_FALSE, (5 * sizeof(GLfloat)), 0);
+		
+	/* k vykresleni pouzivame Vertex Buffer Object */
+	glDrawArrays (GL_TRIANGLES, 0, 6);
+	
+	glDisableVertexAttribArray (0);
+	glDisableVertexAttribArray (1);
+
+	glBindBuffer (GL_ARRAY_BUFFER, 0);
+
+	/* vypneme shader */
+	glUseProgram (0);
 }
 
 bool gl_water_init ()
 {
+#ifdef OLD
 	water_surf = (float *) malloc (6 * WATER_RES * (WATER_RES + 1) * sizeof (float));
 	
 	if (!water_surf)
@@ -219,6 +266,21 @@ bool gl_water_init ()
 	
 	if (!water_norm)
 		return false;
+#endif
+	
+	GLfloat buf[] = { 
+		//x, y, z, u ,v
+		1.0f, 1.0f, 0.0f, 1.0f, 1.0f,
+		0.0f, 1.0f, 0.0f, 1.0f, 0.0f,
+		0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+
+		0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+		1.0f, 0.0f, 0.0f, 0.0f, 1.0f,
+		1.0f, 1.0f, 0.0f, 1.0f, 1.0f,
+	};
+	
+	vbo_id = vbo_alloc ((void *) buf, sizeof (buf));
+	shader = shader_init ("data/shader_water");
 	
 	return true;
 }

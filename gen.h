@@ -23,14 +23,13 @@
 
 #include <math.h>
 #include <iostream>
+#include <GL/glew.h>
 #include <SDL2/SDL.h>
 
 #define SDL_SUBSYSTEMS SDL_INIT_VIDEO
 
 #ifndef ANDROID	/* nastaveni zobrazeni pro platformu PC */
-# define WIN_FLAGS SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE// | SDL_WINDOW_FULLSCREEN_DESKTOP
-# define WIN_WIDTH 1280
-# define WIN_HEIGHT 1024
+# define WIN_FLAGS SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_FULLSCREEN
 # define WIN_BPP 0
 # define FSAA 1
 
@@ -41,8 +40,6 @@
 
 #ifdef ANDROID /* nastaveni zobrazeni pro Android */
 # define WIN_FLAGS SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE
-# define WIN_WIDTH 480
-# define WIN_HEIGHT 800
 # define WIN_BPP 0
 # define FSAA 0
 

@@ -18,11 +18,11 @@
 #
 
 CXX=g++
-LIBS=-lGL -lGLU `sdl2-config --cflags --libs` -lSDL2_ttf -lSDL2_image
+LIBS=-lGL -lGLU -lGLEW `sdl2-config --cflags --libs` -lSDL2_ttf -lSDL2_image
 CXXFLAGS=-O3
 
-gen: main.o gl.o event.o mouse.o kbd.o camera.o terrain.o logic.o octree.o tex.o frustum.o polygonise.o font.o water.o
-	$(CXX) $(CXXFLAGS) main.o gl.o event.o mouse.o kbd.o camera.o terrain.o logic.o octree.o tex.o frustum.o polygonise.o font.o water.o $(LIBS_DIR) $(LIBS) -o gen
+gen-linux: main.o gl.o event.o mouse.o kbd.o camera.o terrain.o logic.o octree.o tex.o frustum.o polygonise.o font.o water.o vbo.o shader.o
+	$(CXX) $(CXXFLAGS) main.o gl.o event.o mouse.o kbd.o camera.o terrain.o logic.o octree.o tex.o frustum.o polygonise.o font.o water.o vbo.o shader.o $(LIBS_DIR) $(LIBS) -o gen-linux
 
 clean:
-	rm -f *.o gen
+	rm -f *.o gen-linux

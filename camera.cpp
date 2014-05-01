@@ -21,26 +21,47 @@
 #include "gen.h"
 #include "camera.h"
 
-static camera_t camera;
+static camera_t cam;
 
 camera_t *camera_get ()
 {
-	return &camera;
+	return &cam;
 }
 
-bool camera_init ()
+void camera_update ()
 {
-	/* nastaveni pocatecni pozice kamery */
-	camera.pos_x = 32;
-	camera.pos_y = 32;
-	camera.pos_z = -40;
+	glMatrixMode (GL_PROJECTION);
+
+	glLoadIdentity ();
+	glViewport (cam.viewport_x, cam.viewport_y, cam.window_width, cam.window_height);
 	
-	/* nastaveni pocatecniho natoceni kamery */
-	camera.rot_x = 0;
-	camera.rot_y = 0;
+	cam.view = glm::rotate (cam.rot_y, glm::vec3 (1, 0, 0)) * glm::rotate (cam.rot_x, glm::vec3 (0, 1, 0)) * glm::translate (cam.pos);
 
-	/* specialni parametry */
-	camera.view_dist = 8;
+	cam.MVP = cam.projection * cam.view * cam.model;
+	
+	glLoadMatrixf (glm::value_ptr (cam.MVP));
+}
 
+bool camera_init (int viewport_x, int viewport_y, int window_width, int window_height)
+{
+	cam.viewport_x = viewport_x;
+	cam.viewport_y = viewport_y;
+	cam.window_width = window_width;
+	cam.window_height = window_height;
+	
+	cam.aspect = double (window_width) / double (window_height);
+	
+	cam.fov = 60;
+	
+	// Projection matrix : 60° Field of View, 4:3 ratio, display range : 0.1 unit <-> 100 units
+	cam.projection = glm::perspective (cam.fov, (float) cam.aspect, NEAR_PLANE, FAR_PLANE);
+ 	cam.pos        = glm::vec3 (0, -80, 0);
+	cam.model      = glm::mat4 (1.0f);  // Changes for each model !
+	
 	return true;
+}
+
+void camera_deinit ()
+{
+	
 }

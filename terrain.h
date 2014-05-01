@@ -21,25 +21,30 @@
 #ifndef __terrain_h__
 #define __terrain_h__
 
+#include "vbo.h"
 #include "camera.h"
 
 #define TERRAIN_VOXEL_TYPE	float
 #define TERRAIN_VOXEL_DIM	2.0f
+#define TERRAIN_AD_FACTOR	12	// (15-5) NOTE: snizeni zrychli generovani
+
+#define TERRAIN_STATE_ACTIVE	0x1
+#define TERRAIN_STATE_WAITING	0x2
+#define TERRAIN_STATE_DELETED	0x4
+#define TERRAIN_STATE_UPDATE	0x8
 
 #ifndef ANDROID
-# define TERRAIN_DIM		32
+# define TERRAIN_DIM		32	// (64,32,16,8) NOTE: snizeni zrychli generovani
 # define TERRAIN_HEIGHT_FACTOR	30
-# define TERRAIN_GEN_FACTOR	1/3.0f
+# define TERRAIN_GEN_FACTOR	1/6.0f
 #else
-# define TERRAIN_DIM		16
+# define TERRAIN_DIM		16	// (64,32,16,8) NOTE: snizeni zrychli generovani
 # define TERRAIN_HEIGHT_FACTOR	15
-# define TERRAIN_GEN_FACTOR	1/3.0f
+# define TERRAIN_GEN_FACTOR	1/6.0f
 #endif
 
 typedef struct {
 	TERRAIN_VOXEL_TYPE value;
-
-	/* TODO */
 } voxel_t;
 
 typedef struct terrain_ctx {
@@ -52,11 +57,12 @@ typedef struct terrain_ctx {
 	
 	unsigned dim_x, dim_y, dim_z;
 
-	float *gl_buf_vert;
-	float *gl_buf_col;
-	float *gl_buf_tex;
-	float *gl_buf_tex2;
+	float *gl_buf;
 	unsigned gl_buf_len;
+	
+	unsigned char state;
+	
+	unsigned vbo_id;
 	
 	voxel_t *data;
 } terrain_t;
@@ -67,6 +73,7 @@ extern float terrain_noise_get (const float x, const float y, const float z);
 extern void terrain_regen (camera_t *c, char action);
 extern voxel_t *terrain_voxel_get (terrain_t *t, unsigned x, unsigned y, unsigned z);
 extern terrain_t *terrain_add (int x, int y, int z);
+extern bool terrain_free (terrain_t *t);
 extern bool terrain_del (terrain_t *t);
 extern bool terrain_init ();
 extern bool terrain_deinit ();

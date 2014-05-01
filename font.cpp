@@ -19,23 +19,27 @@
  */
 
 #include "font.h"
+#include "vbo.h"
+#include "shader.h"
+#include "camera.h"
+
 #ifndef ANDROID
 static TTF_Font *font;
+static int vbo_id;
+static int shader;
 #endif
 void font_render (const double &X, const double &Y, const char *text)
 {
 #ifndef ANDROID
-	/* vzdalenost od obrazovky */
-	const double Z = 0.5f;
-	
 	unsigned Texture = 0;
-	
+
 	/* barva pisma.*/
 	SDL_Color color = {255, 255, 255};
 	
 	SDL_Surface *msg = TTF_RenderText_Blended (const_cast<TTF_Font*>(font), text, color);
  
 	/* vygenerujeme texturu v OpenGL z SDL_Surface.*/
+
 	glGenTextures (1, &Texture);
 	glBindTexture (GL_TEXTURE_2D, Texture);
  
@@ -44,21 +48,44 @@ void font_render (const double &X, const double &Y, const char *text)
  
 	glTexImage2D (GL_TEXTURE_2D, 0, GL_RGBA, msg->w, msg->h, 0, GL_BGRA,
 	             GL_UNSIGNED_BYTE, msg->pixels);
-	
-	/* nastaveni velikosti pisma */
-	glScalef (0.001f, 0.001f, 1);
 
-	/* provedeme potrebnou rotaci */
-	glRotatef (180, 0, 1, 0);
+	camera_t *c = camera_get ();
 	
-	/* vykreslime texturu na ctvercovou plochu.*/
-	glBegin(GL_QUADS);
-		glTexCoord2d(1, 1); glVertex3d(X, Y, Z);
-		glTexCoord2d(0, 1); glVertex3d(X+msg->w, Y, Z);
-		glTexCoord2d(0, 0); glVertex3d(X+msg->w, Y+msg->h, Z);
-		glTexCoord2d(1, 0); glVertex3d(X, Y+msg->h, Z);
-	glEnd();
- 
+	glBindBuffer (GL_ARRAY_BUFFER, vbo_id);
+	
+	glUseProgram (shader);
+		
+	glm::mat4 proj = c->projection;
+	glm::mat4 tmp = glm::translate (glm::vec3 (X, Y, -1.0f)) * glm::rotate (180.0f, glm::vec3 (1, 0, 0)) * glm::scale (glm::vec3 (0.1f, 0.05f, 1.0));
+
+	int uniform = glGetUniformLocation (shader, "MVMatrix");
+	glUniformMatrix4fv (uniform, 1, GL_FALSE, (float*)&tmp[0]);
+	uniform = glGetUniformLocation (shader, "PMatrix");
+	glUniformMatrix4fv (uniform, 1, GL_FALSE, (float*)&proj[0]);
+	
+	GLuint tex_id = glGetUniformLocation (shader, "tex_sampler0");
+	glUniform1i (tex_id, 0);
+
+	/* texura */
+	glActiveTexture (GL_TEXTURE0); 
+
+	glEnableVertexAttribArray (0);
+	glEnableVertexAttribArray (1);
+	
+	glVertexAttribPointer (0, 3, GL_FLOAT, GL_FALSE, (5 * sizeof(GLfloat)), 0);
+	glVertexAttribPointer (1, 2, GL_FLOAT, GL_FALSE, (5 * sizeof(GLfloat)), 0);
+	
+	/* k vykresleni pouzivame Vertex Buffer Object */
+	glDrawArrays (GL_TRIANGLES, 0, 6);
+	
+	glDisableVertexAttribArray (0);
+	glDisableVertexAttribArray (1);
+
+	glBindBuffer (GL_ARRAY_BUFFER, 0);
+
+	/* vypneme shader */
+	glUseProgram (0);
+
 	/*Clean up.*/
 	glDeleteTextures(1, &Texture);
 	SDL_FreeSurface(msg);
@@ -75,5 +102,19 @@ bool font_init ()
 	if (!font)
 		return false;
 #endif
+	GLfloat buf[] = { 
+		//x, y, z, u ,v
+		1.0f, 1.0f, 0.0f, 1.0f, 1.0f,
+		0.0f, 1.0f, 0.0f, 1.0f, 0.0f,
+		0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+
+		0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+		1.0f, 0.0f, 0.0f, 0.0f, 1.0f,
+		1.0f, 1.0f, 0.0f, 1.0f, 1.0f,
+	};
+	
+	vbo_id = vbo_alloc ((void *) buf, sizeof (buf));
+	shader = shader_init ("data/shader_font");
+	
 	return true;
 }

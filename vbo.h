@@ -1,6 +1,5 @@
 /*
  *  (C) Copyright 2014 ZeXx86 (tomasj@spirit-system.com)
- *  (C) Copyright 2013 ZeXx86 (tomasj@spirit-system.com)
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -18,25 +17,16 @@
  *
  */
 
-#include "gen.h"
-#include "camera.h"
-#include "terrain.h"
-#include "polygonise.h"
+#ifndef __vbo_h__
+#define __vbo_h__
 
-bool frustum_check (terrain_t *t, camera_t *c)
-{
-	/* FRUSTUM CULLING */
-	float f_x = (sinf (M_PI/180 * -c->rot_x) * (t->origin_x+c->pos[0]) + cosf (M_PI/180 * -c->rot_x) * (t->origin_y+c->pos[1]));/* + sinf (M_PI/180 * (-c->rot_y)) * -c->pos_z;*/
-	float f_y = sinf (M_PI/180 * (c->rot_y)) * c->pos[2];
-	
-	if (0 < f_x)
-		return false;
-	
-	return true;
-}
+typedef struct {
+	unsigned id;
+} vbo_t;
 
-bool frustum_init ()
-{
-	
-	return true;
-}
+extern unsigned vbo_alloc (void *buf, unsigned long len);
+extern void vbo_free (unsigned *id);
+extern vbo_t *vbo_get ();
+
+#endif
+

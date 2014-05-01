@@ -51,9 +51,9 @@ vector_t polygonise_trg_norm (triangle_t t)
 	v.y = t.p[2].y - t.p[0].y;
 	v.z = t.p[2].z - t.p[0].z;
 	
-	n.x = (u.y * v.z) - (u.z * v.y);
-	n.y = (u.z * v.x) - (u.x * v.z);
-	n.z = (u.x * v.y) - (u.y * v.x);
+	n.x = -((u.y * v.z) - (u.z * v.y));
+	n.y = -((u.z * v.x) - (u.x * v.z));
+	n.z = -((u.x * v.y) - (u.y * v.x));
 	
 	trg_normalize (&n);
 	

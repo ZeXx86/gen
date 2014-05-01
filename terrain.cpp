@@ -150,7 +150,46 @@ terrain_t *terrain_get ()
 {
 	return terrain_list.next;
 }
+#ifdef TEST
+voxel_t *terrain_voxel_find (terrain_t *t, unsigned x, unsigned y, unsigned z)
+{
+	int x_off = t->origin_x;
+	int y_off = t->origin_y;
+	int z_off = t->origin_z;
+	
+	if (x >= t->dim_x)
+		x_off += TERRAIN_DIM;
+	if (y >= t->dim_y)
+		y_off += TERRAIN_DIM;
+	if (z >= t->dim_z)
+		z_off += TERRAIN_DIM;
+	
+	terrain_t *a;
+	
+	/* kontrola, zda neexistuje teren na stejne pozici */
+	for (a = terrain_list.next; a != &terrain_list; a = a->next) {
+		if (a->origin_x == x_off && a->origin_y == y_off && a->origin_z == z_off) {
+			 x = (x % TERRAIN_DIM);
+			 y = (y % TERRAIN_DIM);
+			 z = (z % TERRAIN_DIM);
+			 
+			 return &a->data[(x+(y*(a->dim_x)))+(z*(a->dim_x)*(a->dim_y))];
+		}	
+	}
+	
+	return &voxel_null;
+}
 
+/* ziskej voxel terenu *t na danych souradnicich */
+voxel_t *terrain_voxel_get (terrain_t *t, unsigned x, unsigned y, unsigned z)
+{
+	/* pozadovane souradnice terenu jsou mimo rozsah */
+	if (x >= (t->dim_x) || y >= (t->dim_y) || z >= (t->dim_z))
+		return terrain_voxel_find (t, x, y, z);
+
+	return &t->data[(x+(y*(t->dim_x)))+(z*(t->dim_x)*(t->dim_y))];
+}
+#endif
 /* ziskej voxel terenu *t na danych souradnicich */
 voxel_t *terrain_voxel_get (terrain_t *t, unsigned x, unsigned y, unsigned z)
 {
@@ -159,7 +198,6 @@ voxel_t *terrain_voxel_get (terrain_t *t, unsigned x, unsigned y, unsigned z)
 
 	return &t->data[(x+(y*(t->dim_x+2)))+(z*(t->dim_x+2)*(t->dim_y+2))];
 }
-
 /* generovani terenu na zaklade jeho pozice */
 static bool terrain_gen (terrain_t *t)
 {
@@ -177,7 +215,7 @@ static bool terrain_gen (terrain_t *t)
 		}
 	} else {		/* horni cast terenu */
 		for (int x = 0; x < t->dim_x+2; x ++) {
-			for (int y = 0; y < t->dim_y+2; y ++) {
+			for (int y = 0; y < t->dim_y+2; y ++) {			
 				float h = terrain_noise_get ((float) (x+t->origin_x) / t->dim_x * TERRAIN_GEN_FACTOR,
 							(float) (y+t->origin_y) / t->dim_y * TERRAIN_GEN_FACTOR,
 							(float) (0+t->origin_z) / t->dim_z * TERRAIN_GEN_FACTOR);
@@ -197,56 +235,6 @@ static bool terrain_gen (terrain_t *t)
 		}
 	}
 	
-	/* DEPRECATED - testovani voxelu */
-	
-	/*t->dim_x = 8;
-	t->dim_y = 8;
-	t->dim_z = 8;
-
-	t->data = (voxel_t *) malloc (sizeof (voxel_t) * t->dim_x * t->dim_y * t->dim_z);*/
-
-	/*for (unsigned x = 0; x < t->dim_x; x ++) {
-		for (unsigned y = 0; y < t->dim_y; y ++) {
-			for (unsigned z = 0; z < t->dim_z; z ++) {
-				voxel_t *v = terrain_voxel_get (t, x, y, z);
-
-				if ((x == 0 || x == 2 || y == 0 || y == 2) && (z == 0 || z == 2))
-					v->value = -1;
-				else
-					v->value = 1 / (0.5f+x+y+z);
-			}
-		}
-	}*/
-
-	/*terrain_voxel_get (t, 0, 1, 2)->value = 1;
-	terrain_voxel_get (t, 1, 0, 2)->value = 1;
-	terrain_voxel_get (t, 1, 1, 2)->value = 1;
-	terrain_voxel_get (t, 1, 2, 2)->value = 1;
-	terrain_voxel_get (t, 2, 1, 2)->value = 1;
-	
-	terrain_voxel_get (t, 1, 1, 3)->value = 1;
-	terrain_voxel_get (t, 1, 1, 1)->value = 1;*/
-	
-/*	terrain_voxel_get (t, 1, 1, 0)->value = 1;
-	terrain_voxel_get (t, 0, 1, 0)->value = 1;
-	terrain_voxel_get (t, 1, 0, 0)->value = 1;
-	terrain_voxel_get (t, 0, 0, 0)->value = 1;*/
-	
-	/*terrain_voxel_get (t, 0, 0, 1)->value = 1;
-	terrain_voxel_get (t, 1, 0, 1)->value = 1;
-	terrain_voxel_get (t, 0, 1, 1)->value = 1;
-	terrain_voxel_get (t, 1, 1, 1)->value = 1;
-	
-	terrain_voxel_get (t, 0, 0, 2)->value = 1;
-	terrain_voxel_get (t, 1, 0, 2)->value = 1;
-	terrain_voxel_get (t, 0, 1, 2)->value = 1;
-	terrain_voxel_get (t, 1, 1, 2)->value = 1;
-	
-	terrain_voxel_get (t, 0, 0, 3)->value = 1;
-	terrain_voxel_get (t, 1, 0, 3)->value = 1;
-	terrain_voxel_get (t, 0, 1, 3)->value = 1;
-	terrain_voxel_get (t, 1, 1, 3)->value = 1;*/
-	
 	return true;
 }
 
@@ -257,6 +245,7 @@ void terrain_regen (camera_t *c, char action)
 	
 	int dd = d/2;
 	
+	/* velikost modifikacni krychle */
 	int v_size = 2;
 	
 	/* potrebujeme si pamatovat max 4 ruzne kvadranty */
@@ -266,52 +255,50 @@ void terrain_regen (camera_t *c, char action)
 	for (int i_x = -v_size; i_x < v_size; i_x ++)
 	for (int i_y = -v_size; i_y < v_size; i_y ++)
 	for (int i_z = -v_size; i_z < v_size; i_z ++) {
+		/* snazime se zaoblit hrany krychle */
 		if ((i_x == -v_size || i_x == v_size-1) && (i_y == -v_size || i_y == v_size-1) && (i_z == -v_size || i_z == v_size-1))
 			continue;
 		
-		float v_pos_x = c->pos_x+d/2 + i_x;
-		float v_pos_y = c->pos_y+d/2 + i_y;
-		float v_pos_z = c->pos_z + i_z;
+		float v_pos_x = c->pos[0] + i_x;
+		float v_pos_y = c->pos[2] + i_y;
+		float v_pos_z = c->pos[1] + i_z;
 	
-		int cx = - ((int) v_pos_x / d) * d;
-		int cy = - ((int) v_pos_y / d) * d;
-		int cz = - ((int) v_pos_z / d) * d;
-							
-		if (c->pos_x < 0)
-			cx = - ((int) (c->pos_x-d/2) / d) * d;
-		if (c->pos_y < 0)
-			cy = - ((int) (c->pos_y-d/2) / d) * d;	
+		int cx = ((int) v_pos_x / d) * d;
+		int cy = ((int) v_pos_y / d) * d;
+		int cz = ((int) v_pos_z / d) * d;
+			
+		if (c->pos[0] < 0)
+			cx = ((int) (v_pos_x-d) / d) * d;
+		if (c->pos[2] < 0)
+			cy = ((int) (v_pos_y-d) / d) * d;	
 
+		//printf ("# X: %d Y: %d Z: %d\n", cx, cy, cz); 
 		
 		int off_x = 0;
-		int off_y = 0;	
+		int off_y = 0;
 again:
 		terrain_t *t;
 		for (t = terrain_list.next; t != &terrain_list; t = t->next) {						
-			if (t->origin_x == cx && t->origin_y == cy && t->origin_z == cz) {
-				//t->gl_buf_len = 0;
-								
+			if (t->origin_x == -cx && t->origin_y == -cy && t->origin_z == -cz) {		
 				//printf ("- %d .. %d .. %d\n", cx, cy, cz);
 				int v_x = (int) v_pos_x % d;
 				int v_y = (int) v_pos_y % d;
 				int v_z = (int) v_pos_z % d;
-								
 
 				if (v_x >= 0)
-					v_x = -(d - v_x);
+					v_x = v_x - d;
 				if (v_y >= 0)
-					v_y = -(d - v_y);
+					v_y = v_y - d;
 				if (v_z >= 0)
-					v_z = -(d - v_z);
+					v_z = v_z - d;
 				
 				v_x += off_x;
 				v_y += off_y;
-				
 			
 				/* je nutne aktualizovat teren i za max/min vzdalenosti kvuli zachovani spojitosti */
 				
 				bool v_c = false;
-				voxel_t *v = terrain_voxel_get (t, (unsigned) (-v_x-1), (unsigned) (-v_y-1), (unsigned) -v_z);		
+				voxel_t *v = terrain_voxel_get (t, (unsigned) (-v_x), (unsigned) (-v_y), (unsigned) -v_z);		
 					
 					if (action == -1)
 						if (v->value >= 0) {
@@ -319,12 +306,10 @@ again:
 							v_c = true;
 						}
 					if (action == 1)
-						if (v->value < 0) {
+						if (v->value <= 0) {
 							v->value = 1;
 							v_c = true;
 						}
-				
-					//printf ("v: %d %d %d\n", v_x, v_y, v_z);			
 
 					if (v_c)
 						for (int i = 0; i < 4; i ++)
@@ -369,39 +354,47 @@ again:
 		}
 	
 	}
-	
+
 	for (int i = 0; i < 4; i ++)
-		if (t_u[i])
+		if (t_u[i]) {
+			//vbo_free (&t_u[i]->vbo_id);
 			gl_prepare_terrain (t_u[i]);
+			t_u[i]->state |= TERRAIN_STATE_UPDATE;
+		}
+		
 }
 
-bool terrain_del (terrain_t *t)
-{
-	//printf ("t_del\n");
-	
-	t->next->prev = t->prev;
-	t->prev->next = t->next;
+bool terrain_free (terrain_t *t)
+{	
+	t->state = TERRAIN_STATE_WAITING;
 
 	void *d = t->data;
-	void *bv = t->gl_buf_vert;
-	void *bc = t->gl_buf_col;
-	void *bt = t->gl_buf_tex;
-	void *bt2 = t->gl_buf_tex2;
+	void *bv = t->gl_buf;
 	
 	t->gl_buf_len = 0;
 	
 	t->root = NULL;
-	t->gl_buf_vert = NULL;
-	t->gl_buf_col = NULL;
-	t->gl_buf_tex = NULL;
-	t->gl_buf_tex2 = NULL;
+	t->gl_buf = NULL;
 	
 	free (d);
-	
 	free (bv);
-	free (bc);
-	free (bt);
-	//free (bt2);
+	
+	return true;
+}
+
+bool terrain_del (terrain_t *t)
+{
+	if (t->state != TERRAIN_STATE_WAITING)
+		return false;
+	
+	t->state = TERRAIN_STATE_DELETED;
+
+	t->next->prev = t->prev;
+	t->prev->next = t->next;
+	
+	vbo_free (&t->vbo_id);
+	
+	free (t);
 	
 	return true;
 }
@@ -422,7 +415,11 @@ terrain_t *terrain_add (int x, int y, int z)
 
 	if (!t)
 		return NULL;
+	
+	t->state = TERRAIN_STATE_ACTIVE;
 
+	t->vbo_id = 0;
+	
 	t->origin_x = x;
 	t->origin_y = y;
 	t->origin_z = z;
@@ -459,9 +456,11 @@ terrain_t *terrain_add (int x, int y, int z)
 bool terrain_deinit ()
 {	
 	terrain_t *t;
-	for (t = terrain_list.next; t != &terrain_list; t = t->next) {
+
+	for (t = terrain_list.next; t != &terrain_list; t = t->next)
 		terrain_del (t);
-	}
+	
+	return true;
 }
 
 bool terrain_init ()
@@ -470,8 +469,8 @@ bool terrain_init ()
 	terrain_list.prev = &terrain_list;
 	
 	/* pridam prvopocatecni teren */
-	if (!terrain_add (0, 0, 0))
-		return false;
+	//if (!terrain_add (0, 0, 0))
+	//	return false;
 
 	return true;
 }

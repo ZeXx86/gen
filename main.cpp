@@ -1,5 +1,6 @@
 #include "gl.h"
 #include "gen.h"
+#include "vbo.h"
 #include "tex.h"
 #include "font.h"
 #include "water.h"
@@ -14,38 +15,62 @@ SDL_Window *g_window;
 
 bool init ()
 {
-	if (!camera_init ())	// Inicializace kamery
-		return false;
-	
 	if (SDL_Init (SDL_SUBSYSTEMS) == -1) {
 		cerr << "Unable to initialize SDL: " << SDL_GetError () << endl;
 		return false;
 	}
+	
+	//SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+#ifdef FSAA
+	SDL_GL_SetAttribute (SDL_GL_MULTISAMPLEBUFFERS, 1);
+	SDL_GL_SetAttribute (SDL_GL_MULTISAMPLESAMPLES, FSAA);
+#endif	
+  	SDL_GL_SetAttribute (SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+  	SDL_GL_SetAttribute (SDL_GL_CONTEXT_MAJOR_VERSION, 1);
+
+	SDL_DisplayMode current;
+
+	// Get current display mode of all displays.
+	for (int i = 0; i < SDL_GetNumVideoDisplays (); ++ i) {  
+		int ret = SDL_GetCurrentDisplayMode(i, &current);
+
+	    	if (ret != 0)
+	    	  	printf ("Could not get display mode for video display #%d: %s", i, SDL_GetError ());
+	    	else 
+	      		printf ("Display #%d: current display mode is %dx%dpx @ %dhz. \n", i, current.w, current.h, current.refresh_rate);
+
+	}
+	
 	// Vytvori okno s definovanymi vlastnostmi
 	g_window = SDL_CreateWindow (WIN_TITLE, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-						WIN_WIDTH, WIN_HEIGHT, WIN_FLAGS);
+						current.w, current.h, WIN_FLAGS);
 	
 	if (g_window == NULL) {
-		cerr << "Unable to set resolution: " << WIN_WIDTH << "x" << WIN_HEIGHT << ", with error: " << SDL_GetError () << endl;
+		cerr << "Unable to set resolution: " << current.w << "x" << current.h << ", with error: " << SDL_GetError () << endl;
 		return false;
 	}
 
 	// Vytvorime SDL GL Context
   	SDL_GLContext glcontext = SDL_GL_CreateContext (g_window);
 	
-	//SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-#ifndef ANDROID
-	SDL_GL_SetAttribute (SDL_GL_BUFFER_SIZE, 24);
-	SDL_GL_SetAttribute (SDL_GL_DEPTH_SIZE, 24);
-#endif
+	if (!glcontext)
+		return false;
 
-#ifdef FSAA
-	SDL_GL_SetAttribute (SDL_GL_MULTISAMPLEBUFFERS, 1);
-	SDL_GL_SetAttribute (SDL_GL_MULTISAMPLESAMPLES, FSAA);
-#endif	
+	int glewStatus = glewInit();
+
+	if (glewStatus != GLEW_OK) {
+		cerr << "Error: " << glewGetErrorString (glewStatus) << endl;
+		return false;
+	}
 	
+	if (!GLEW_VERSION_3_3) {
+		printf ("WARNING -> your graphic card does not support OpenGL 3.3+\n");
+		printf ("-> switching to GLSL 3.0 ES\n");
+	}
+
 	// VSync
 	//SDL_GL_SetSwapInterval (1);
+
 	if (!terrain_init ())	// Inicializace terenu
 		return false;
 
@@ -55,22 +80,19 @@ bool init ()
 	if (!font_init ())
 		return false;	// Inicializace fontu
 
-	if (!gl_water_init ())
-		return false;
-
-	if (!gl_init ())	// Inicializace OpenGL
+	if (!gl_init ())	// Inicializace OpenGL sceny
 		return false;
 
 	if (!tex_init ())	// Inicializace textur
 		return false;
-
-	if (!logic_init ())
+	
+	if (!gl_water_init ())
 		return false;
 
-	gl_resize (WIN_WIDTH, WIN_HEIGHT);// Nastavi perspektivu
-	//SDL_WM_SetCaption (WIN_TITLE, NULL);// Titulek okna
-	//gl_resize (WIN_WIDTH, WIN_HEIGHT);// Nastavi perspektivu
+	if (!logic_init ())	// Inicializace logiky programu
+		return false;
 
+	gl_resize (current.w, current.h);// Nastavi perspektivu
 #ifndef ANDROID
 	SDL_ShowCursor (SDL_DISABLE);
 	SDL_SetWindowGrab (g_window, SDL_TRUE);
@@ -86,7 +108,7 @@ void deinit ()
 	terrain_deinit ();
 	
 	tex_deinit ();
-
+	
 	SDL_Quit ();
 }
 
